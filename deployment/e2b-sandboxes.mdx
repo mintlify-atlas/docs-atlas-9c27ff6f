@@ -1,0 +1,198 @@
+---
+title: E2B Sandbox Setup
+description: Configure E2B sandboxes and build custom templates for AI code generation
+---
+
+# E2B Sandbox Setup
+
+ZapDev uses [E2B Code Interpreter](https://e2b.dev) to run AI-generated code in isolated sandboxes. Before running the application, you must build a custom E2B template that contains the framework environment.
+
+## Prerequisites
+
+<Warning>
+  **Docker Required**: The E2B template build process requires Docker to be installed and running on your machine.
+</Warning>
+
+- Docker Desktop or Docker Engine installed and running
+- E2B account (free tier available)
+- Node.js 18+ or Bun installed
+
+## Installation
+
+Install the E2B CLI globally using your preferred package manager:
+
+```bash
+# Using npm
+npm i -g @e2b/cli
+
+# Using Homebrew (macOS/Linux)
+brew install e2b
+```
+
+## Authentication
+
+Log in to your E2B account to authenticate the CLI:
+
+```bash
+e2b auth login
+```
+
+This will open your browser and prompt you to authorize the CLI. After authentication, you'll receive an API key that's stored locally.
+
+## Building the Next.js Template
+
+ZapDev includes pre-configured sandbox templates for multiple frameworks. The primary template is for Next.js.
+
+### Navigate to Template Directory
+
+```bash
+cd sandbox-templates/nextjs
+```
+
+### Build the Template
+
+```bash
+e2b template build --name your-template-name --cmd "/compile_page.sh"
+```
+
+Replace `your-template-name` with a unique identifier (e.g., `zapdev-nextjs-prod`).
+
+<Info>
+  The `--cmd "/compile_page.sh"` flag tells E2B to run the startup script that pre-warms the Next.js dev server and ensures the root page is compiled.
+</Info>
+
+### Template Build Process
+
+The template build includes:
+
+1. **Base Image**: Node.js 21 slim image
+2. **User Setup**: Creates `user` account with proper permissions
+3. **Dependencies**: Installs npm, pnpm, and system utilities (curl, sudo)
+4. **Next.js App**: Scaffolds a fresh Next.js 15.3.3 application
+5. **Shadcn/ui**: Initializes Shadcn with neutral theme and installs all components
+6. **Startup Script**: Copies `compile_page.sh` for pre-warming the dev server
+
+### What's in compile_page.sh?
+
+The startup script ensures the sandbox is ready for instant code generation:
+
+```bash
+#!/bin/bash
+
+# Pings localhost:3000 until Next.js dev server responds with 200
+function ping_server() {
+  counter=0
+  response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000")
+  while [[ ${response} -ne 200 ]]; do
+    let counter++
+    if  (( counter % 20 == 0 )); then
+      echo "Waiting for server to start..."
+      sleep 0.1
+    fi
+    response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000")
+  done
+}
+
+ping_server &
+cd /home/user && npx next dev --turbopack
+```
+
+This script starts the Next.js dev server with Turbopack and waits for it to be ready before marking the sandbox as available.
+
+## Configuring Your Application
+
+After building the template, you need to update the template name in your code:
+
+### Update Inngest Functions
+
+Edit `src/inngest/functions.ts` and replace the default template name:
+
+```typescript
+// Replace "zapdev" with your template name (line 22)
+const sandbox = await Sandbox.create("your-template-name");
+```
+
+### Set E2B API Key
+
+Add your E2B API key to `.env`:
+
+```bash
+E2B_API_KEY="your-e2b-api-key"
+```
+
+Get your API key from the [E2B Dashboard](https://e2b.dev/dashboard).
+
+## Available Framework Templates
+
+ZapDev supports multiple framework templates in `sandbox-templates/`:
+
+- **nextjs** - Next.js 15 with Shadcn/ui (primary)
+- **angular** - Angular 19 with Material Design
+- **react** - React 18 with Vite and Chakra UI
+- **vue** - Vue 3 with Vuetify
+- **svelte** - SvelteKit with DaisyUI
+
+Each template can be built separately using the same `e2b template build` command.
+
+## Template Management
+
+### List Your Templates
+
+```bash
+e2b template list
+```
+
+### Delete a Template
+
+```bash
+e2b template delete your-template-name
+```
+
+### Update a Template
+
+To update an existing template, rebuild it with the same name:
+
+```bash
+e2b template build --name your-template-name --cmd "/compile_page.sh"
+```
+
+<Warning>
+  **Production Caveat**: Template updates don't automatically propagate to running sandboxes. Active sandboxes will continue using the old version until they're destroyed and recreated.
+</Warning>
+
+## Troubleshooting
+
+### Docker Not Running
+
+If you see errors about Docker during the build:
+
+```bash
+# Check Docker status
+docker ps
+
+# Start Docker Desktop (macOS)
+open -a Docker
+```
+
+### Build Timeout
+
+If the build times out during npm installations:
+
+1. Increase the timeout in `e2b.toml.old` (if using legacy config)
+2. Check your internet connection
+3. Try building during off-peak hours
+
+### Sandbox Start Failures
+
+If sandboxes fail to start or the preview doesn't load:
+
+1. Verify the template name matches in your code
+2. Check E2B Dashboard for sandbox logs
+3. Rebuild the template with `--cmd "/compile_page.sh"`
+4. Ensure your E2B API key is valid and not rate-limited
+
+## Next Steps
+
+- [Configure Inngest](/deployment/inngest-setup) for background job processing
+- [Set up Clerk Authentication](/deployment/authentication)
+- Deploy to production on Vercel

@@ -1,0 +1,347 @@
+---
+title: "Polar.sh Webhooks"
+description: "Handle subscription events from Polar.sh payment platform"
+---
+
+## Overview
+
+ZapDev integrates with Polar.sh to process subscription and payment events. The webhook endpoint handles subscription lifecycle events, customer synchronization, and payment status updates.
+
+## Endpoint URL
+
+```
+POST /api/webhooks/polar
+```
+
+## Configuration
+
+### Environment Variables
+
+Add these to your `.env.local` file:
+
+```bash
+POLAR_WEBHOOK_SECRET=your_webhook_secret_from_polar
+NEXT_PUBLIC_CONVEX_URL=your_convex_deployment_url
+```
+
+### Polar Dashboard Setup
+
+1. Go to your Polar.sh dashboard
+2. Navigate to **Settings** → **Webhooks**
+3. Add webhook URL: `https://yourdomain.com/api/webhooks/polar`
+4. Copy the webhook secret to your environment variables
+5. Select the events you want to receive (see supported events below)
+
+## Webhook Verification
+
+All incoming webhooks are verified using the Polar SDK:
+
+```typescript
+import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
+
+const body = await request.text();
+const signature = request.headers.get("webhook-signature");
+
+if (!signature) {
+  return NextResponse.json(
+    { error: "Missing webhook signature" },
+    { status: 401 }
+  );
+}
+
+try {
+  const event = validateEvent(
+    body,
+    Object.fromEntries(request.headers.entries()),
+    webhookSecret
+  );
+} catch (error) {
+  if (error instanceof WebhookVerificationError) {
+    return NextResponse.json(
+      { error: "Invalid webhook signature" },
+      { status: 401 }
+    );
+  }
+}
+```
+
+See implementation in `src/app/api/webhooks/polar/route.ts:136-147`.
+
+## Supported Events
+
+### Subscription Events
+
+#### `subscription.created`
+
+Fired when a new subscription is created.
+
+```json
+{
+  "type": "subscription.created",
+  "data": {
+    "id": "sub_123456789",
+    "status": "active",
+    "customerId": "cus_987654321",
+    "productId": "prod_abc123",
+    "priceId": "price_xyz789",
+    "currentPeriodStart": "2026-01-01T00:00:00Z",
+    "currentPeriodEnd": "2026-02-01T00:00:00Z",
+    "cancelAtPeriodEnd": false,
+    "price": {
+      "recurringInterval": "month"
+    },
+    "metadata": {
+      "userId": "user_2abc123def456"
+    }
+  }
+}
+```
+
+**Processing:** Creates or updates subscription in Convex database, syncs customer record.
+
+#### `subscription.updated`
+
+Fired when subscription details change (plan upgrade/downgrade, payment method, etc.).
+
+**Payload:** Same structure as `subscription.created`.
+
+**Processing:** Updates existing subscription record with new status and billing period.
+
+#### `subscription.active`
+
+Fired when a subscription becomes active (e.g., after trial period).
+
+**Payload:** Same structure as `subscription.created`.
+
+**Processing:** Ensures subscription status is set to `active`.
+
+#### `subscription.canceled`
+
+Fired when a user cancels their subscription.
+
+```json
+{
+  "type": "subscription.canceled",
+  "data": {
+    "id": "sub_123456789",
+    "status": "canceled",
+    "canceledAt": "2026-03-01T12:00:00Z",
+    "cancelAtPeriodEnd": true
+  }
+}
+```
+
+**Processing:** Marks subscription for cancellation via `api.subscriptions.markSubscriptionForCancellation`.
+
+See implementation in `src/app/api/webhooks/polar/route.ts:273-294`.
+
+#### `subscription.revoked`
+
+Fired when a subscription is immediately revoked (e.g., payment failure, refund).
+
+**Processing:** Immediately revokes access via `api.subscriptions.revokeSubscription`.
+
+See implementation in `src/app/api/webhooks/polar/route.ts:296-317`.
+
+#### `subscription.uncanceled`
+
+Fired when a previously canceled subscription is reactivated.
+
+**Processing:** Reactivates subscription via `api.subscriptions.reactivateSubscription`.
+
+See implementation in `src/app/api/webhooks/polar/route.ts:319-340`.
+
+### Checkout Events
+
+#### `checkout.created`
+
+Fired when a checkout session is initiated.
+
+```json
+{
+  "type": "checkout.created",
+  "data": {
+    "id": "checkout_abc123",
+    "status": "open"
+  }
+}
+```
+
+**Processing:** Logged for debugging purposes.
+
+#### `checkout.updated`
+
+Fired when checkout status changes (completed, expired, etc.).
+
+```json
+{
+  "type": "checkout.updated",
+  "data": {
+    "id": "checkout_abc123",
+    "status": "succeeded",
+    "customerId": "cus_987654321",
+    "metadata": {
+      "userId": "user_2abc123def456"
+    }
+  }
+}
+```
+
+**Processing:** When status is `succeeded` or `confirmed`, syncs customer record and processes pending subscriptions.
+
+See implementation in `src/app/api/webhooks/polar/route.ts:171-198`.
+
+### Order Events
+
+#### `order.created`
+
+Fired when a one-time purchase order is created.
+
+```json
+{
+  "type": "order.created",
+  "data": {
+    "id": "order_xyz789",
+    "customerId": "cus_987654321",
+    "metadata": {
+      "userId": "user_2abc123def456"
+    }
+  }
+}
+```
+
+**Processing:** Syncs customer record and processes pending subscriptions.
+
+See implementation in `src/app/api/webhooks/polar/route.ts:342-369`.
+
+## Status Mapping
+
+Polar subscription statuses are mapped to ZapDev's internal status types:
+
+```typescript
+type SubscriptionStatus = "active" | "canceled" | "past_due" | "unpaid" | "trialing";
+
+const statusMap: Record<string, SubscriptionStatus> = {
+  active: "active",
+  canceled: "canceled",
+  past_due: "past_due",
+  unpaid: "unpaid",
+  trialing: "trialing",
+  revoked: "canceled",
+};
+```
+
+See implementation in `src/app/api/webhooks/polar/route.ts:17-27`.
+
+## Pending Subscription Handling
+
+If a webhook arrives before the user completes authentication, the subscription is saved as pending:
+
+```typescript
+// Save for later reconciliation
+await convex.mutation(api.webhooks.savePendingSubscription, {
+  polarSubscriptionId: subscription.id,
+  customerId: customerId || "unknown",
+  eventData: subscription,
+  error: "Could not determine userId - saved for reconciliation",
+});
+```
+
+Pending subscriptions are automatically resolved when:
+- A `checkout.updated` event arrives with userId metadata
+- An `order.created` event links the customer to a user
+- The user completes sign-up and the system reconciles pending records
+
+See implementation in `src/app/api/webhooks/polar/route.ts:228-246`.
+
+## Event Logging
+
+All webhook events are logged to the `webhookEvents` table in Convex:
+
+```typescript
+await convex.mutation(api.webhooks.logWebhookEvent, {
+  eventId: generateEventId(event),
+  eventType: event.type,
+  payload: event.data,
+});
+```
+
+Event status is tracked with possible values:
+- `received` - Event logged but not yet processed
+- `processed` - Successfully handled
+- `failed` - Processing error occurred
+- `retrying` - Automatic retry in progress
+
+See implementation in `convex/webhooks.ts:4-31`.
+
+## Health Check
+
+Test webhook configuration:
+
+```bash
+curl https://yourdomain.com/api/webhooks/polar
+```
+
+**Response:**
+
+```json
+{
+  "status": "healthy",
+  "checks": {
+    "webhookSecretConfigured": true,
+    "convexUrlConfigured": true,
+    "timestamp": "2026-03-03T12:00:00.000Z"
+  }
+}
+```
+
+See implementation in `src/app/api/webhooks/polar/route.ts:403-427`.
+
+## Testing
+
+Use Polar's webhook testing tool to send test events:
+
+1. Go to **Settings** → **Webhooks** in Polar dashboard
+2. Click **Send test event**
+3. Select event type (e.g., `subscription.created`)
+4. Verify event appears in your Convex `webhookEvents` table
+
+## Error Handling
+
+Webhook processing errors are logged but return `200 OK` to prevent Polar from retrying:
+
+```typescript
+try {
+  // Process event
+  await processSubscriptionEvent(convex, subscription, userId);
+  await convex.mutation(api.webhooks.updateWebhookEventStatus, {
+    eventId,
+    status: "processed",
+  });
+} catch (error) {
+  console.error("[Webhook] Failed:", error);
+  await convex.mutation(api.webhooks.updateWebhookEventStatus, {
+    eventId,
+    status: "failed",
+    error: error instanceof Error ? error.message : "Unknown error",
+  });
+}
+```
+
+Failed events can be queried and manually retried:
+
+```typescript
+// Get failed events
+const failedEvents = await convex.query(api.webhooks.getFailedWebhookEvents, {
+  limit: 100
+});
+```
+
+See implementation in `convex/webhooks.ts:77-88`.
+
+## Related Files
+
+- Webhook handler: `src/app/api/webhooks/polar/route.ts`
+- Event logging: `convex/webhooks.ts`
+- Customer sync: `convex/polar.ts`
+- Subscription management: `convex/subscriptions.ts`

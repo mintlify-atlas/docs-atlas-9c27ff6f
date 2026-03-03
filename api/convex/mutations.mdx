@@ -1,0 +1,1016 @@
+---
+title: Convex Mutations
+description: Reference for all Convex mutation and action functions in ZapDev - write operations for projects, messages, usage, and more
+---
+
+Convex mutations are **transactional write operations** that modify database state. Actions can call external APIs and run mutations. All mutations enforce authentication and authorization.
+
+## Projects
+
+### projects.create
+
+Create a new project.
+
+```typescript
+const projectId = await ctx.runMutation(api.projects.create, {
+  name: "My App",
+  framework: "NEXTJS",
+});
+```
+
+**Arguments:**
+- `name: string` - Project name
+- `framework: Framework` - One of: `"NEXTJS"`, `"ANGULAR"`, `"REACT"`, `"VUE"`, `"SVELTE"`
+
+**Returns:** Project ID
+
+**Timestamps:** Sets `createdAt` and `updatedAt` to current time
+
+---
+
+### projects.createWithMessage (action)
+
+Create a project with an initial user message. Consumes 1 credit.
+
+```typescript
+const result = await ctx.runAction(api.projects.createWithMessage, {
+  value: "Build a todo app",
+});
+```
+
+**Arguments:**
+- `value: string` - Initial message content
+
+**Returns:**
+```typescript
+{
+  id: Id<"projects">;
+  name: string;
+  userId: string;
+  framework: Framework;
+  messageId: Id<"messages">;
+  value: string;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+**Side Effects:**
+- Checks and consumes 1 credit
+- Generates random project name (e.g., "happy-project")
+- Creates project with framework `"NEXTJS"`
+- Creates initial USER message with status COMPLETE
+
+**Throws:** If user has no credits remaining
+
+---
+
+### projects.createWithMessageAndAttachments (action)
+
+Create a project with an initial message and image/file attachments. Consumes 1 credit.
+
+```typescript
+const result = await ctx.runAction(api.projects.createWithMessageAndAttachments, {
+  value: "Build this design",
+  attachments: [
+    {
+      url: "https://...",
+      size: 12345,
+      width: 800,
+      height: 600,
+    },
+  ],
+});
+```
+
+**Arguments:**
+- `value: string` - Initial message content
+- `attachments?: Array<{ url: string; size: number; width?: number; height?: number }>` - Optional attachments
+
+**Returns:** Same as `createWithMessage`
+
+**Side Effects:** Same as `createWithMessage`, plus creates attachment records
+
+---
+
+### projects.update
+
+Update a project's name, framework, or model preference.
+
+```typescript
+await ctx.runMutation(api.projects.update, {
+  projectId: "j57...",
+  name: "New Name",
+  modelPreference: "gpt-4",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+- `name?: string` - New project name
+- `framework?: Framework` - New framework
+- `modelPreference?: string` - Preferred AI model
+
+**Returns:** Project ID
+
+**Throws:** If project not found or user doesn't own it
+
+---
+
+### projects.deleteProject
+
+Delete a project and all associated data (messages, fragments, attachments, drafts).
+
+```typescript
+await ctx.runMutation(api.projects.deleteProject, {
+  projectId: "j57...",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+
+**Returns:** `{ success: true }`
+
+**Side Effects:** Cascades delete to:
+- All messages for the project
+- All fragments linked to those messages
+- All attachments linked to those messages
+- Fragment draft for the project
+
+**Throws:** If project not found or user doesn't own it
+
+---
+
+### projects.getOrCreateFragmentDraft
+
+Get or create a fragment draft for a project.
+
+```typescript
+const draft = await ctx.runMutation(api.projects.getOrCreateFragmentDraft, {
+  projectId: "j57...",
+  framework: "NEXTJS",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+- `framework: Framework` - Framework for the draft
+
+**Returns:** Fragment draft document
+
+**Side Effects:** Creates draft with empty `files: {}` if none exists
+
+---
+
+### projects.createForUser
+
+Create a project for a specific user (for use from actions).
+
+```typescript
+const projectId = await ctx.runMutation(api.projects.createForUser, {
+  userId: "user_123",
+  name: "My App",
+  framework: "NEXTJS",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+- `name: string` - Project name
+- `framework: Framework` - Framework
+
+**Returns:** Project ID
+
+---
+
+### projects.updateForUser
+
+Update a project for a specific user (for background jobs).
+
+```typescript
+await ctx.runMutation(api.projects.updateForUser, {
+  userId: "user_123",
+  projectId: "j57...",
+  name: "Updated Name",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+- `projectId: Id<"projects">` - Project ID
+- `name?: string` - New name
+- `framework?: Framework` - New framework
+- `modelPreference?: string` - Model preference
+
+**Returns:** Project ID
+
+## Messages
+
+### messages.create
+
+Create a new message.
+
+```typescript
+const messageId = await ctx.runMutation(api.messages.create, {
+  projectId: "j57...",
+  content: "Build a login page",
+  role: "USER",
+  type: "RESULT",
+  status: "COMPLETE",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+- `content: string` - Message content
+- `role: "USER" | "ASSISTANT"` - Message role
+- `type: "RESULT" | "ERROR" | "STREAMING"` - Message type
+- `status?: "PENDING" | "STREAMING" | "COMPLETE"` - Message status (default: COMPLETE)
+
+**Returns:** Message ID
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.createWithAttachments (action)
+
+Create a message with attachments. Consumes 1 credit.
+
+```typescript
+const result = await ctx.runAction(api.messages.createWithAttachments, {
+  value: "Build this design",
+  projectId: "j57...",
+  attachments: [
+    {
+      url: "https://...",
+      size: 12345,
+      type: "IMAGE",
+    },
+  ],
+});
+```
+
+**Arguments:**
+- `value: string` - Message content
+- `projectId: string` - Project ID
+- `attachments?: Array<{ url: string; size: number; width?: number; height?: number; type?: AttachmentType; importId?: Id<"imports">; sourceMetadata?: any }>` - Optional attachments
+
+**Returns:**
+```typescript
+{
+  messageId: Id<"messages">;
+  projectId: Id<"projects">;
+  value: string;
+}
+```
+
+**Side Effects:**
+- Checks and consumes 1 credit
+- Creates USER message with type RESULT and status COMPLETE
+- Creates attachment records if provided
+
+**Throws:** If user has no credits remaining
+
+---
+
+### messages.updateStatus
+
+Update message status (for streaming).
+
+```typescript
+await ctx.runMutation(api.messages.updateStatus, {
+  messageId: "j97...",
+  status: "STREAMING",
+});
+```
+
+**Arguments:**
+- `messageId: Id<"messages">` - Message ID
+- `status: MessageStatus` - New status
+
+**Returns:** Message ID
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.updateMessage
+
+Update message content and optionally status.
+
+```typescript
+const updated = await ctx.runMutation(api.messages.updateMessage, {
+  messageId: "j97...",
+  content: "Updated content",
+  status: "COMPLETE",
+});
+```
+
+**Arguments:**
+- `messageId: Id<"messages">` - Message ID
+- `content: string` - New content
+- `status?: MessageStatus` - New status
+
+**Returns:** Updated message document
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.createFragment
+
+Create or update a fragment for a message.
+
+```typescript
+const fragmentId = await ctx.runMutation(api.messages.createFragment, {
+  messageId: "j97...",
+  sandboxUrl: "https://e2b.dev/sandbox/abc123",
+  title: "Todo App",
+  files: {
+    "src/App.tsx": "export default function App() { ... }",
+    "src/index.css": "body { margin: 0; }",
+  },
+  framework: "NEXTJS",
+  metadata: { buildTime: 1234 },
+});
+```
+
+**Arguments:**
+- `messageId: Id<"messages">` - Message ID
+- `sandboxUrl: string` - E2B sandbox URL or `"webcontainer://local"`
+- `title: string` - Fragment title
+- `files: any` - Record of file paths to content
+- `framework: Framework` - Framework
+- `metadata?: any` - Custom metadata
+
+**Returns:** Fragment ID
+
+**Side Effects:** Updates existing fragment if one exists for the message
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.addAttachment
+
+Add an attachment to a message.
+
+```typescript
+const attachmentId = await ctx.runMutation(api.messages.addAttachment, {
+  messageId: "j97...",
+  type: "IMAGE",
+  url: "https://...",
+  size: 12345,
+  width: 800,
+  height: 600,
+});
+```
+
+**Arguments:**
+- `messageId: Id<"messages">` - Message ID
+- `type: AttachmentType` - `"IMAGE"`, `"FIGMA_FILE"`, or `"GITHUB_REPO"`
+- `url: string` - Attachment URL
+- `size: number` - File size in bytes
+- `width?: number` - Image width
+- `height?: number` - Image height
+- `importId?: Id<"imports">` - Link to import record
+- `sourceMetadata?: any` - Source metadata
+
+**Returns:** Attachment ID
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.createForUser
+
+Create a message for a specific user (for actions).
+
+```typescript
+const messageId = await ctx.runMutation(api.messages.createForUser, {
+  userId: "user_123",
+  projectId: "j57...",
+  content: "Message content",
+  role: "ASSISTANT",
+  type: "RESULT",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+- `projectId: Id<"projects">` - Project ID
+- `content: string` - Message content
+- `role: MessageRole` - Message role
+- `type: MessageType` - Message type
+- `status?: MessageStatus` - Message status
+
+**Returns:** Message ID
+
+---
+
+### messages.createFragmentForUser
+
+Create a fragment for a specific user (for background jobs).
+
+```typescript
+const fragmentId = await ctx.runMutation(api.messages.createFragmentForUser, {
+  userId: "user_123",
+  messageId: "j97...",
+  sandboxUrl: "https://e2b.dev/sandbox/abc123",
+  title: "Result",
+  files: { "index.html": "..." },
+  framework: "REACT",
+});
+```
+
+**Arguments:** Same as `createFragment` plus `userId: string`
+
+**Returns:** Fragment ID
+
+## Usage & Credits
+
+### usage.checkAndConsumeCredit
+
+Check if user has credits and consume one. Returns success status.
+
+```typescript
+const result = await ctx.runMutation(api.usage.checkAndConsumeCredit, {});
+```
+
+**Returns:**
+```typescript
+{
+  success: boolean;
+  remaining: number;
+  message?: string;  // Error message if insufficient credits
+}
+```
+
+**Side Effects:**
+- Creates usage record if none exists
+- Resets credits if expired (24-hour rolling window)
+- Decrements credits by 1 if available
+
+**Credit Limits:**
+- Free: 5/day
+- Pro: 100/day
+- Unlimited: No limit
+
+---
+
+### usage.resetUsage
+
+Reset usage for a user (admin function).
+
+```typescript
+await ctx.runMutation(api.usage.resetUsage, {
+  userId: "user_123",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+
+**Side Effects:** Deletes usage record (will be recreated on next use)
+
+---
+
+### usage.checkAndConsumeCreditForUser
+
+Check and consume credit for a specific user (for actions).
+
+```typescript
+const result = await ctx.runMutation(api.usage.checkAndConsumeCreditForUser, {
+  userId: "user_123",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+
+**Returns:** Same as `checkAndConsumeCredit`
+
+## Subscriptions
+
+### subscriptions.createOrUpdateSubscription
+
+Create or update a subscription (webhook handler).
+
+```typescript
+const subscriptionId = await ctx.runMutation(api.subscriptions.createOrUpdateSubscription, {
+  polarSubscriptionId: "sub_123",
+  customerId: "cus_456",
+  productId: "prod_789",
+  priceId: "price_012",
+  status: "active",
+  interval: "monthly",
+  currentPeriodStart: Date.now(),
+  currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,
+  cancelAtPeriodEnd: false,
+});
+```
+
+**Arguments:**
+- `polarSubscriptionId: string` - Polar subscription ID
+- `customerId: string` - Polar customer ID
+- `productId: string` - Product ID
+- `priceId: string` - Price ID
+- `status: SubscriptionStatus` - Subscription status
+- `interval: "monthly" | "yearly"` - Billing interval
+- `currentPeriodStart: number` - Period start timestamp
+- `currentPeriodEnd: number` - Period end timestamp
+- `cancelAtPeriodEnd: boolean` - Whether to cancel at period end
+- `canceledAt?: number` - Cancellation timestamp
+- `trialStart?: number` - Trial start timestamp
+- `trialEnd?: number` - Trial end timestamp
+- `metadata?: any` - Custom metadata
+- `userId?: string` - Clerk user ID (looked up from customer if not provided)
+
+**Returns:** Subscription ID or null if customer not found
+
+**Side Effects:** Updates existing subscription if one exists with same Polar ID
+
+---
+
+### subscriptions.markSubscriptionForCancellation
+
+Mark a subscription to cancel at period end.
+
+```typescript
+await ctx.runMutation(api.subscriptions.markSubscriptionForCancellation, {
+  polarSubscriptionId: "sub_123",
+});
+```
+
+**Arguments:**
+- `polarSubscriptionId: string` - Polar subscription ID
+
+**Returns:** Subscription ID
+
+**Side Effects:** Sets `cancelAtPeriodEnd: true`
+
+---
+
+### subscriptions.reactivateSubscription
+
+Reactivate a subscription marked for cancellation.
+
+```typescript
+await ctx.runMutation(api.subscriptions.reactivateSubscription, {
+  polarSubscriptionId: "sub_123",
+});
+```
+
+**Arguments:**
+- `polarSubscriptionId: string` - Polar subscription ID
+
+**Returns:** Subscription ID
+
+**Side Effects:** Sets `cancelAtPeriodEnd: false`
+
+---
+
+### subscriptions.revokeSubscription
+
+Immediately revoke a subscription.
+
+```typescript
+await ctx.runMutation(api.subscriptions.revokeSubscription, {
+  polarSubscriptionId: "sub_123",
+});
+```
+
+**Arguments:**
+- `polarSubscriptionId: string` - Polar subscription ID
+
+**Returns:** Subscription ID
+
+**Side Effects:** Sets `status: "canceled"` and `cancelAtPeriodEnd: false`
+
+## Imports
+
+### imports.createImport
+
+Create a new import record.
+
+```typescript
+const importId = await ctx.runMutation(api.imports.createImport, {
+  projectId: "j57...",
+  source: "FIGMA",
+  sourceId: "file_abc123",
+  sourceName: "My Design",
+  sourceUrl: "https://figma.com/file/...",
+  metadata: { pages: ["Home", "About"] },
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+- `messageId?: Id<"messages">` - Optional message to link to
+- `source: "FIGMA" | "GITHUB"` - Import source
+- `sourceId: string` - Source ID (Figma file ID or GitHub repo ID)
+- `sourceName: string` - Display name
+- `sourceUrl: string` - Source URL
+- `metadata?: any` - Custom metadata
+
+**Returns:** Import ID
+
+**Side Effects:** Creates import with status `"PENDING"`
+
+**Throws:** If user doesn't own the project
+
+---
+
+### imports.updateStatus
+
+Update import status.
+
+```typescript
+await ctx.runMutation(api.imports.updateStatus, {
+  importId: "k34...",
+  status: "COMPLETE",
+  metadata: { processedAt: Date.now() },
+});
+```
+
+**Arguments:**
+- `importId: Id<"imports">` - Import ID
+- `status: ImportStatus` - New status
+- `error?: string` - Error message if failed
+- `metadata?: any` - Metadata to merge with existing
+
+**Side Effects:** Updates `updatedAt`
+
+---
+
+### imports.markProcessing
+
+Mark import as processing.
+
+```typescript
+await ctx.runMutation(api.imports.markProcessing, {
+  importId: "k34...",
+});
+```
+
+**Arguments:**
+- `importId: Id<"imports">` - Import ID
+
+**Side Effects:** Sets status to `"PROCESSING"`
+
+---
+
+### imports.markComplete
+
+Mark import as complete.
+
+```typescript
+await ctx.runMutation(api.imports.markComplete, {
+  importId: "k34...",
+  metadata: { result: "success" },
+});
+```
+
+**Arguments:**
+- `importId: Id<"imports">` - Import ID
+- `metadata?: any` - Final metadata
+
+**Side Effects:** Sets status to `"COMPLETE"`
+
+---
+
+### imports.markFailed
+
+Mark import as failed.
+
+```typescript
+await ctx.runMutation(api.imports.markFailed, {
+  importId: "k34...",
+  error: "Failed to fetch Figma file",
+});
+```
+
+**Arguments:**
+- `importId: Id<"imports">` - Import ID
+- `error: string` - Error message
+
+**Side Effects:** Sets status to `"FAILED"`
+
+## OAuth Connections
+
+### oauth.storeConnection
+
+Store or update an OAuth connection.
+
+```typescript
+await ctx.runMutation(api.oauth.storeConnection, {
+  provider: "figma",
+  accessToken: "figd_...",
+  refreshToken: "refresh_...",
+  expiresAt: Date.now() + 3600000,
+  scope: "file_read",
+  metadata: { userId: "123" },
+});
+```
+
+**Arguments:**
+- `provider: "figma" | "github"` - OAuth provider
+- `accessToken: string` - Access token
+- `refreshToken?: string` - Refresh token
+- `expiresAt?: number` - Expiration timestamp
+- `scope: string` - OAuth scope
+- `metadata?: any` - Custom metadata
+
+**Side Effects:** Updates existing connection if one exists for this provider
+
+---
+
+### oauth.revokeConnection
+
+Revoke an OAuth connection.
+
+```typescript
+await ctx.runMutation(api.oauth.revokeConnection, {
+  provider: "figma",
+});
+```
+
+**Arguments:**
+- `provider: "figma" | "github"` - OAuth provider
+
+**Side Effects:** Deletes connection record
+
+---
+
+### oauth.updateMetadata
+
+Update OAuth connection metadata.
+
+```typescript
+await ctx.runMutation(api.oauth.updateMetadata, {
+  provider: "github",
+  metadata: { repos: ["repo1", "repo2"] },
+});
+```
+
+**Arguments:**
+- `provider: "figma" | "github"` - OAuth provider
+- `metadata: any` - New metadata (replaces existing)
+
+**Throws:** If no connection found for provider
+
+## Rate Limiting
+
+### rateLimit.checkRateLimit
+
+Check and increment rate limit for a key.
+
+```typescript
+const result = await ctx.runMutation(api.rateLimit.checkRateLimit, {
+  key: "user_123_api",
+  limit: 100,
+  windowMs: 60000, // 1 minute
+});
+```
+
+**Arguments:**
+- `key: string` - Rate limit key
+- `limit: number` - Max requests allowed in window
+- `windowMs: number` - Window duration in milliseconds
+
+**Returns:**
+```typescript
+{
+  success: boolean;     // Whether request is allowed
+  remaining: number;    // Requests remaining in window
+  resetTime: number;    // When window resets (timestamp)
+  message?: string;     // Error message if rate limited
+}
+```
+
+**Side Effects:**
+- Creates rate limit record if none exists
+- Resets window if expired
+- Increments count if within limit
+
+---
+
+### rateLimit.resetExpiredRateLimits
+
+Cleanup expired rate limit records.
+
+```typescript
+const deleted = await ctx.runMutation(api.rateLimit.resetExpiredRateLimits, {});
+```
+
+**Returns:** Number of deleted records
+
+**Side Effects:** Deletes all expired rate limit records
+
+## Agent Runs
+
+### agentRuns.enqueueForSystem
+
+Enqueue a new agent run for WebContainer execution.
+
+```typescript
+const runId = await ctx.runMutation(api.agentRuns.enqueueForSystem, {
+  projectId: "j57...",
+  value: "Build a login page",
+  model: "gpt-4",
+  framework: "NEXTJS",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+- `value: string` - User's prompt/request
+- `model?: string` - AI model to use
+- `framework?: string` - Framework override
+
+**Returns:** Agent run ID
+
+**Side Effects:** Creates run with status `"PENDING"` and source `"WEBCONTAINER"`
+
+---
+
+### agentRuns.claimRun
+
+Claim a pending agent run for execution.
+
+```typescript
+const run = await ctx.runMutation(api.agentRuns.claimRun, {
+  runId: "k56...",
+});
+```
+
+**Arguments:**
+- `runId: Id<"agentRuns">` - Agent run ID
+
+**Returns:**
+```typescript
+{
+  runId: Id<"agentRuns">;
+  projectId: Id<"projects">;
+  value: string;
+  model?: string;
+  framework: Framework;
+  baseFiles: Record<string, string>;  // Latest code from project
+}
+```
+
+**Side Effects:**
+- Sets status to `"RUNNING"`
+- Sets `claimedBy` to current user ID
+- Retrieves latest code files from project fragments
+
+**Throws:** If run already claimed or user doesn't own project
+
+---
+
+### agentRuns.completeRun
+
+Complete an agent run with results.
+
+```typescript
+const result = await ctx.runMutation(api.agentRuns.completeRun, {
+  runId: "k56...",
+  summary: "Created a login page with email/password",
+  files: {
+    "src/pages/login.tsx": "...",
+    "src/styles/login.css": "...",
+  },
+  framework: "NEXTJS",
+  metadata: { buildTime: 1234 },
+});
+```
+
+**Arguments:**
+- `runId: Id<"agentRuns">` - Agent run ID
+- `summary: string` - Summary of what was built
+- `files: Record<string, string>` - Generated code files
+- `framework: Framework` - Framework used
+- `messageType?: MessageType` - Message type (default: RESULT)
+- `messageStatus?: MessageStatus` - Message status (default: COMPLETE)
+- `metadata?: any` - Custom metadata
+
+**Returns:**
+```typescript
+{
+  messageId: Id<"messages">;
+  fragmentId: Id<"fragments">;
+}
+```
+
+**Side Effects:**
+- Creates ASSISTANT message with summary
+- Creates fragment with generated files
+- Sets run status to `"COMPLETED"`
+- Sets sandboxUrl to `"webcontainer://local"`
+
+**Throws:** If run is not in RUNNING status or user doesn't own project
+
+---
+
+### agentRuns.failRun
+
+Mark an agent run as failed.
+
+```typescript
+await ctx.runMutation(api.agentRuns.failRun, {
+  runId: "k56...",
+  error: "Build failed: TypeScript error",
+});
+```
+
+**Arguments:**
+- `runId: Id<"agentRuns">` - Agent run ID
+- `error: string` - Error message
+
+**Returns:** Agent run ID
+
+**Side Effects:** Sets status to `"FAILED"` and records error
+
+## Usage Examples
+
+### Create Project with Credit Check
+
+```typescript
+import { api } from "@/convex/_generated/api";
+import { useMutation } from "convex/react";
+
+function NewProjectButton() {
+  const createProject = useMutation(api.projects.createWithMessage);
+
+  const handleClick = async () => {
+    try {
+      const result = await createProject({
+        value: "Build a todo app",
+      });
+      console.log("Created project:", result.id);
+    } catch (error) {
+      if (error.message.includes("credits")) {
+        alert("Out of credits!");
+      }
+    }
+  };
+
+  return <button onClick={handleClick}>New Project</button>;
+}
+```
+
+### Stream Message Updates
+
+```typescript
+import { api } from "@/convex/_generated/api";
+import { useMutation } from "convex/react";
+
+async function streamResponse(messageId, content) {
+  const updateMessage = useMutation(api.messages.updateMessage);
+  const updateStatus = useMutation(api.messages.updateStatus);
+
+  // Mark as streaming
+  await updateStatus({ messageId, status: "STREAMING" });
+
+  // Stream content updates
+  for (const chunk of contentChunks) {
+    await updateMessage({ messageId, content: content + chunk });
+  }
+
+  // Mark as complete
+  await updateStatus({ messageId, status: "COMPLETE" });
+}
+```
+
+### Import Figma Design
+
+```typescript
+import { api } from "@/convex/_generated/api";
+import { useMutation } from "convex/react";
+
+async function importFigmaFile(projectId, fileUrl) {
+  const createImport = useMutation(api.imports.createImport);
+  const markProcessing = useMutation(api.imports.markProcessing);
+  const markComplete = useMutation(api.imports.markComplete);
+  const markFailed = useMutation(api.imports.markFailed);
+
+  // Create import record
+  const importId = await createImport({
+    projectId,
+    source: "FIGMA",
+    sourceId: extractFileId(fileUrl),
+    sourceName: "Design File",
+    sourceUrl: fileUrl,
+  });
+
+  try {
+    await markProcessing({ importId });
+    // ... process Figma file
+    await markComplete({ importId });
+  } catch (error) {
+    await markFailed({ importId, error: error.message });
+  }
+}
+```

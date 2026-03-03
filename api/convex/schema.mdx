@@ -1,0 +1,523 @@
+---
+title: Database Schema
+description: Complete reference for ZapDev's Convex database schema, tables, indexes, and type definitions
+---
+
+ZapDev uses [Convex](https://convex.dev) as its real-time database and backend. This document provides a complete reference of all database tables, their fields, indexes, and enum types.
+
+## Schema Overview
+
+The database schema is defined in `convex/schema.ts` and consists of 13 main tables:
+
+- **projects** - User projects and configurations
+- **messages** - Chat messages within projects
+- **fragments** - Generated code fragments and previews
+- **fragmentDrafts** - Draft code state for projects
+- **attachments** - Images and files attached to messages
+- **oauthConnections** - OAuth tokens for external services
+- **imports** - Figma/GitHub import tracking
+- **usage** - Credit usage and rate limiting
+- **rateLimits** - API rate limit tracking
+- **subscriptions** - Polar subscription data
+- **polarCustomers** - Polar customer mappings
+- **webhookEvents** - Webhook event processing log
+- **pendingSubscriptions** - Subscription resolution queue
+- **agentRuns** - AI agent execution tracking
+
+## Enum Types
+
+### Framework
+
+Supported frontend frameworks:
+
+```typescript
+type Framework = "NEXTJS" | "ANGULAR" | "REACT" | "VUE" | "SVELTE"
+```
+
+### Message Role
+
+Message author role:
+
+```typescript
+type MessageRole = "USER" | "ASSISTANT"
+```
+
+### Message Type
+
+Type of message content:
+
+```typescript
+type MessageType = "RESULT" | "ERROR" | "STREAMING"
+```
+
+### Message Status
+
+Message streaming/completion status:
+
+```typescript
+type MessageStatus = "PENDING" | "STREAMING" | "COMPLETE"
+```
+
+### Attachment Type
+
+Types of attachments:
+
+```typescript
+type AttachmentType = "IMAGE" | "FIGMA_FILE" | "GITHUB_REPO"
+```
+
+### Import Source
+
+External import sources:
+
+```typescript
+type ImportSource = "FIGMA" | "GITHUB"
+```
+
+### OAuth Provider
+
+Supported OAuth providers:
+
+```typescript
+type OAuthProvider = "figma" | "github"
+```
+
+### Import Status
+
+Import processing status:
+
+```typescript
+type ImportStatus = "PENDING" | "PROCESSING" | "COMPLETE" | "FAILED"
+```
+
+### Agent Run Status
+
+AI agent execution status:
+
+```typescript
+type AgentRunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED"
+```
+
+### Agent Run Source
+
+Execution environment:
+
+```typescript
+type AgentRunSource = "WEBCONTAINER" | "INNGEST"
+```
+
+### Webhook Event Status
+
+Webhook processing status:
+
+```typescript
+type WebhookEventStatus = "received" | "processed" | "failed" | "retrying"
+```
+
+### Subscription Status
+
+Polar subscription status:
+
+```typescript
+type SubscriptionStatus = "active" | "past_due" | "canceled" | "unpaid" | "trialing"
+```
+
+### Subscription Interval
+
+Billing interval:
+
+```typescript
+type SubscriptionInterval = "monthly" | "yearly"
+```
+
+## Tables
+
+### projects
+
+User projects with framework configuration.
+
+```typescript
+{
+  name: string;
+  userId: string;                    // Clerk user ID
+  framework: Framework;
+  modelPreference?: string;          // Preferred AI model
+  createdAt?: number;
+  updatedAt?: number;
+}
+```
+
+**Indexes:**
+- `by_userId` - Query projects by user
+- `by_userId_createdAt` - Query projects by user sorted by creation date
+
+### messages
+
+Chat messages within a project.
+
+```typescript
+{
+  content: string;
+  role: MessageRole;
+  type: MessageType;
+  status: MessageStatus;
+  projectId: Id<"projects">;
+  createdAt?: number;
+  updatedAt?: number;
+}
+```
+
+**Indexes:**
+- `by_projectId` - Query messages for a project
+- `by_projectId_createdAt` - Query messages sorted by creation date
+
+### fragments
+
+Generated code fragments with sandbox URLs.
+
+```typescript
+{
+  messageId: Id<"messages">;
+  sandboxUrl: string;               // E2B sandbox URL or webcontainer://local
+  title: string;
+  files: any;                       // Record<string, string> of file paths to content
+  metadata?: any;                   // Custom metadata
+  framework: Framework;
+  createdAt?: number;
+  updatedAt?: number;
+}
+```
+
+**Indexes:**
+- `by_messageId` - Get fragment for a message
+
+### fragmentDrafts
+
+Draft code state for ongoing work.
+
+```typescript
+{
+  projectId: Id<"projects">;
+  files: any;                       // Record<string, string>
+  framework: Framework;
+  createdAt?: number;
+  updatedAt?: number;
+}
+```
+
+**Indexes:**
+- `by_projectId` - Get draft for a project
+
+### attachments
+
+Files and images attached to messages.
+
+```typescript
+{
+  type: AttachmentType;
+  url: string;
+  width?: number;
+  height?: number;
+  size: number;                     // File size in bytes
+  messageId: Id<"messages">;
+  importId?: Id<"imports">;         // Link to import if from Figma/GitHub
+  sourceMetadata?: any;
+  createdAt?: number;
+  updatedAt?: number;
+}
+```
+
+**Indexes:**
+- `by_messageId` - Query attachments for a message
+
+### oauthConnections
+
+OAuth tokens for Figma and GitHub.
+
+```typescript
+{
+  userId: string;
+  provider: OAuthProvider;
+  accessToken: string;              // Encrypted in storage
+  refreshToken?: string;
+  expiresAt?: number;
+  scope: string;
+  metadata?: any;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+**Indexes:**
+- `by_userId` - Query connections for a user
+- `by_userId_provider` - Get specific provider connection
+
+### imports
+
+Figma and GitHub import tracking.
+
+```typescript
+{
+  userId: string;
+  projectId: Id<"projects">;
+  messageId?: Id<"messages">;
+  source: ImportSource;
+  sourceId: string;                 // Figma file ID or GitHub repo ID
+  sourceName: string;
+  sourceUrl: string;
+  status: ImportStatus;
+  metadata?: any;
+  error?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+**Indexes:**
+- `by_userId` - Query imports by user
+- `by_projectId` - Query imports for a project
+- `by_status` - Query imports by status
+
+### usage
+
+Credit usage tracking (24-hour rolling window).
+
+```typescript
+{
+  userId: string;
+  points: number;                   // Remaining credits
+  expire?: number;                  // When credits reset
+  planType?: "free" | "pro" | "unlimited";
+}
+```
+
+**Indexes:**
+- `by_userId` - Get usage for a user
+- `by_expire` - Cleanup expired records
+
+**Credit Limits:**
+- Free: 5 generations/day
+- Pro: 100 generations/day
+- Unlimited: No limit
+
+### rateLimits
+
+API rate limiting storage.
+
+```typescript
+{
+  key: string;                      // Rate limit key (e.g., "user_123_api")
+  count: number;                    // Requests in current window
+  windowStart: number;              // Window start timestamp
+  limit: number;                    // Max requests allowed
+  windowMs: number;                 // Window duration
+}
+```
+
+**Indexes:**
+- `by_key` - Lookup rate limit by key
+- `by_windowStart` - Cleanup old records
+
+### subscriptions
+
+Polar subscription data.
+
+```typescript
+{
+  userId: string;
+  polarSubscriptionId: string;
+  customerId: string;
+  productId: string;
+  priceId: string;
+  status: SubscriptionStatus;
+  interval: SubscriptionInterval;
+  currentPeriodStart: number;
+  currentPeriodEnd: number;
+  cancelAtPeriodEnd: boolean;
+  canceledAt?: number;
+  trialStart?: number;
+  trialEnd?: number;
+  metadata?: any;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+**Indexes:**
+- `by_userId` - Get user's subscriptions
+- `by_polarSubscriptionId` - Lookup by Polar ID
+- `by_customerId` - Lookup by customer
+- `by_status` - Query by status
+
+### polarCustomers
+
+Mapping between Clerk users and Polar customers.
+
+```typescript
+{
+  userId: string;                   // Clerk user ID
+  polarCustomerId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+**Indexes:**
+- `by_userId` - Lookup by Clerk user
+- `by_polarCustomerId` - Lookup by Polar customer
+
+### webhookEvents
+
+Webhook event processing log.
+
+```typescript
+{
+  eventId: string;
+  eventType: string;
+  status: WebhookEventStatus;
+  payload: any;
+  error?: string;
+  processedAt?: number;
+  retryCount: number;
+  createdAt: number;
+}
+```
+
+**Indexes:**
+- `by_eventId` - Lookup by event ID
+- `by_status` - Query by status
+- `by_eventType` - Query by event type
+- `by_createdAt` - Query by timestamp
+
+### pendingSubscriptions
+
+Subscription resolution queue for webhooks that arrive before user creation.
+
+```typescript
+{
+  polarSubscriptionId: string;
+  customerId: string;
+  eventData: any;
+  status: "pending" | "resolved" | "failed";
+  resolvedUserId?: string;
+  error?: string;
+  createdAt: number;
+  resolvedAt?: number;
+}
+```
+
+**Indexes:**
+- `by_polarSubscriptionId` - Lookup by subscription
+- `by_customerId` - Lookup by customer
+- `by_status` - Query by status
+
+### agentRuns
+
+AI agent execution tracking for WebContainer and Inngest runs.
+
+```typescript
+{
+  projectId: Id<"projects">;
+  value: string;                    // User's prompt/request
+  model?: string;                   // AI model used
+  framework?: string;
+  status: AgentRunStatus;
+  runSource: AgentRunSource;
+  claimedBy?: string;               // User ID that claimed the run
+  messageId?: Id<"messages">;
+  fragmentId?: Id<"fragments">;
+  error?: string;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+}
+```
+
+**Indexes:**
+- `by_projectId` - Query runs for a project
+- `by_projectId_status` - Query runs by project and status
+- `by_status` - Query all runs by status
+- `by_projectId_createdAt` - Query runs sorted by creation date
+
+## Relationships
+
+```
+projects
+  ├── messages (1:many)
+  │   ├── fragments (1:1)
+  │   └── attachments (1:many)
+  ├── fragmentDrafts (1:1)
+  ├── imports (1:many)
+  └── agentRuns (1:many)
+
+users (Clerk)
+  ├── projects (1:many)
+  ├── oauthConnections (1:many)
+  ├── usage (1:1)
+  ├── subscriptions (1:many)
+  └── polarCustomers (1:1)
+
+imports
+  └── attachments (1:many via importId)
+```
+
+## Best Practices
+
+### Authentication
+
+All queries and mutations should verify user ownership:
+
+```typescript
+const userId = await requireAuth(ctx);
+const project = await ctx.db.get(projectId);
+if (project.userId !== userId) {
+  throw new Error("Unauthorized");
+}
+```
+
+### Indexes
+
+Always use indexes for queries - never use `.filter()` without an index:
+
+```typescript
+// Good
+const projects = await ctx.db
+  .query("projects")
+  .withIndex("by_userId", (q) => q.eq("userId", userId))
+  .collect();
+
+// Bad - O(N) table scan
+const projects = await ctx.db
+  .query("projects")
+  .filter((q) => q.eq(q.field("userId"), userId))
+  .collect();
+```
+
+### Timestamps
+
+Always set `createdAt` and `updatedAt`:
+
+```typescript
+const now = Date.now();
+await ctx.db.insert("projects", {
+  // ... fields
+  createdAt: now,
+  updatedAt: now,
+});
+```
+
+### Cascade Deletes
+
+Manually delete related records when deleting parent entities:
+
+```typescript
+// Delete all messages for a project
+const messages = await ctx.db
+  .query("messages")
+  .withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+  .collect();
+
+for (const message of messages) {
+  await ctx.db.delete(message._id);
+}
+```

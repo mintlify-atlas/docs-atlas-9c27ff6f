@@ -1,0 +1,269 @@
+---
+title: "Deployment Overview"
+description: "Learn how to deploy ZapDev to production with Vercel and Convex"
+---
+
+ZapDev is an AI-powered development platform that requires several services to be configured for production deployment. This guide covers the deployment architecture, prerequisites, and deployment options.
+
+## Architecture Overview
+
+ZapDev consists of the following components:
+
+- **Frontend & API**: Next.js 15 application deployed on Vercel
+- **Database**: Convex real-time database (serverless)
+- **Authentication**: Stack Auth for user management
+- **AI Models**: OpenRouter, Cerebras, and Vercel AI Gateway
+- **Sandboxes**: E2B Code Interpreter for isolated code execution
+- **Billing**: Polar.sh for subscription management
+- **Monitoring**: Sentry for error tracking
+- **File Storage**: UploadThing for file uploads
+
+## Prerequisites
+
+Before deploying ZapDev, ensure you have:
+
+### Required Accounts
+
+1. **Vercel Account** - For hosting the Next.js application
+2. **Convex Account** - For the real-time database backend
+3. **Stack Auth Account** - For user authentication
+4. **OpenRouter Account** - For AI model access
+5. **E2B Account** - For code sandbox execution
+6. **Polar.sh Account** - For subscription billing
+
+### Optional Services
+
+- **Cerebras API** - For ultra-fast Z.AI GLM 4.7 model inference
+- **Vercel AI Gateway** - As fallback for rate limits
+- **Brave Search API** - For web search capabilities in subagents
+- **Firecrawl** - For web scraping capabilities
+- **Sentry** - For production error monitoring
+- **UploadThing** - For file upload functionality
+
+### Development Tools
+
+- **Bun** - Package manager (NOT npm/pnpm/yarn)
+- **Docker** - Required for building E2B sandbox templates
+- **Git** - For version control
+
+## Deployment Options
+
+### Option 1: Vercel Deployment (Recommended)
+
+The recommended deployment method for ZapDev is using Vercel, which provides:
+
+- Automatic deployments from Git
+- Edge network distribution
+- Preview deployments for branches
+- Zero-config Next.js optimization
+- Environment variable management
+
+**Steps:**
+
+1. Deploy Convex database schema
+2. Configure environment variables in Vercel
+3. Deploy Next.js application to Vercel
+4. Build and deploy E2B sandbox templates
+5. Verify all integrations are working
+
+### Option 2: Self-Hosted
+
+You can self-host ZapDev on any Node.js-compatible platform:
+
+- VPS (DigitalOcean, Linode, etc.)
+- Container platforms (Docker, Kubernetes)
+- Cloud providers (AWS, GCP, Azure)
+
+**Requirements:**
+
+- Node.js 18+ runtime
+- Bun package manager
+- SSL certificate for HTTPS
+- Environment variable configuration
+
+## Deployment Workflow
+
+### 1. Database Setup
+
+Deploy your Convex database schema first:
+
+```bash
+bun run convex:deploy
+```
+
+This creates all required tables with proper indexes. See [Database Setup](/deployment/database-setup) for details.
+
+### 2. Environment Configuration
+
+Configure all required environment variables in your deployment platform. See [Environment Variables](/deployment/environment-variables) for the complete list.
+
+### 3. E2B Template Build
+
+Build the E2B sandbox template that AI agents use:
+
+```bash
+# Install E2B CLI
+npm i -g @e2b/cli
+# or
+brew install e2b
+
+# Login to E2B
+e2b auth login
+
+# Navigate to template directory
+cd sandbox-templates/nextjs
+
+# Build the template
+e2b template build --name your-template-name --cmd "/compile_page.sh"
+```
+
+**Important:** Update the template name in `src/inngest/functions.ts` line 22 to match your template name.
+
+### 4. Application Deployment
+
+Deploy your Next.js application:
+
+**Vercel:**
+```bash
+vercel --prod
+```
+
+**Self-Hosted:**
+```bash
+bun run build
+bun run start
+```
+
+### 5. Verification
+
+After deployment, verify:
+
+- [ ] Application loads at your production URL
+- [ ] User authentication works (sign up/sign in)
+- [ ] Convex database is connected
+- [ ] AI code generation works in projects
+- [ ] E2B sandboxes execute successfully
+- [ ] Subscription checkout flows work
+- [ ] No errors in Sentry (if configured)
+
+## Production Checklist
+
+Before going live:
+
+- [ ] All environment variables configured
+- [ ] Convex database deployed with proper indexes
+- [ ] E2B template built and tested
+- [ ] Stack Auth configured with OAuth providers
+- [ ] Polar.sh products and pricing configured
+- [ ] Domain name configured (if custom domain)
+- [ ] SSL certificate active
+- [ ] Sentry error tracking enabled
+- [ ] Rate limiting tested
+- [ ] Subscription webhooks configured
+- [ ] Backup strategy in place
+
+## Common Deployment Issues
+
+### Build Failures
+
+**Symptom:** TypeScript errors during build
+
+**Solution:** Run `bun run lint` locally to catch errors before deploying
+
+### Database Connection Errors
+
+**Symptom:** "Convex not configured" errors
+
+**Solution:** Ensure `NEXT_PUBLIC_CONVEX_URL` is set correctly in environment variables
+
+### Authentication Failures
+
+**Symptom:** Users cannot sign in
+
+**Solution:** Verify Stack Auth keys and JWT configuration match between Stack Auth dashboard and environment variables
+
+### Sandbox Creation Failures
+
+**Symptom:** AI code generation fails with E2B errors
+
+**Solution:** Verify E2B API key is valid and template name in code matches deployed template
+
+### Webhook Failures
+
+**Symptom:** Subscription status not updating
+
+**Solution:** Check Polar.sh webhook configuration and verify `POLAR_WEBHOOK_SECRET` matches dashboard
+
+## Monitoring & Maintenance
+
+### Health Checks
+
+Monitor these endpoints:
+
+- `/api/health` - Application health
+- Convex Dashboard - Database status
+- Sentry - Error tracking
+- Vercel Analytics - Performance metrics
+
+### Database Maintenance
+
+Convex is serverless and requires no manual maintenance. Schema changes are deployed via:
+
+```bash
+bun run convex:deploy
+```
+
+### Cost Monitoring
+
+Monitor costs for:
+
+- **E2B**: Sandbox execution time
+- **Convex**: Database operations and bandwidth
+- **OpenRouter/Cerebras**: AI model API calls
+- **Vercel**: Hosting and bandwidth
+- **UploadThing**: File storage
+
+## Scaling Considerations
+
+### Database Scaling
+
+Convex automatically scales. Optimize by:
+
+- Using proper indexes (avoid `.filter()`)
+- Implementing pagination for large queries
+- Caching frequently accessed data
+
+### Application Scaling
+
+Vercel automatically scales. Consider:
+
+- Edge caching for static assets
+- CDN for media files
+- Rate limiting to prevent abuse
+
+### Sandbox Scaling
+
+E2B sandboxes auto-scale. Optimize by:
+
+- Auto-pausing inactive sandboxes (10 min inactivity)
+- Cleaning up old sandboxes (> 30 days)
+- Monitoring sandbox usage in E2B dashboard
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="key" href="/deployment/environment-variables">
+    Configure all required API keys and secrets
+  </Card>
+  <Card title="Database Setup" icon="database" href="/deployment/database-setup">
+    Deploy Convex schema and verify tables
+  </Card>
+</CardGroup>
+
+## Support Resources
+
+- [Convex Documentation](https://docs.convex.dev/)
+- [Vercel Documentation](https://vercel.com/docs)
+- [E2B Documentation](https://e2b.dev/docs)
+- [Stack Auth Documentation](https://docs.stack-auth.com/)
+- [Polar.sh Documentation](https://docs.polar.sh/)

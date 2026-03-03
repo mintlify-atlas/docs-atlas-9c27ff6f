@@ -1,0 +1,363 @@
+---
+title: Clerk Authentication Setup
+description: Configure Clerk for user authentication and JWT integration with Convex
+---
+
+# Clerk Authentication Setup
+
+ZapDev uses [Clerk](https://clerk.com) for user authentication, providing secure login, session management, and JWT token generation for Convex database access.
+
+## Create a Clerk Account
+
+1. Go to [Clerk Dashboard](https://dashboard.clerk.com) and sign up
+2. Create a new application (e.g., "ZapDev")
+3. Choose your authentication methods (Email, Google, GitHub, etc.)
+
+## Get Your API Keys
+
+After creating your application, navigate to **API Keys** in the Clerk dashboard.
+
+You'll need:
+
+- **Publishable Key** - Used in the frontend
+- **Secret Key** - Used in the backend
+
+### Add Keys to Environment
+
+Update your `.env` file:
+
+```bash
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+CLERK_SECRET_KEY="sk_test_..."
+```
+
+<Warning>
+  **Security**: The `CLERK_SECRET_KEY` should NEVER be exposed in client-side code or committed to version control. Keep it in `.env` and add `.env` to `.gitignore`.
+</Warning>
+
+## Configure JWT Template for Convex
+
+Clerk needs to generate JWT tokens that Convex can verify. This requires creating a custom JWT template.
+
+### Create Convex JWT Template
+
+1. In Clerk Dashboard, go to **JWT Templates**
+2. Click **New Template** → **Convex**
+3. Name it exactly: `convex`
+4. Click **Create**
+
+### Get JWT Issuer Domain
+
+After creating the template:
+
+1. Click on the `convex` template
+2. Copy the **Issuer Domain** (e.g., `https://your-app.clerk.accounts.dev`)
+3. Add it to `.env`:
+
+```bash
+CLERK_JWT_ISSUER_DOMAIN="https://your-app.clerk.accounts.dev"
+CLERK_JWT_TEMPLATE_NAME="convex"
+```
+
+### Configure Convex to Accept Clerk Tokens
+
+In your Convex dashboard:
+
+1. Go to **Settings** → **Auth**
+2. Add Clerk as an auth provider
+3. Enter your JWT Issuer Domain from Clerk
+4. Save the configuration
+
+<Info>
+  Convex will now validate JWT tokens issued by Clerk, enabling secure database access based on user identity.
+</Info>
+
+## Configure Sign-In/Sign-Up Routes
+
+ZapDev uses custom routes for authentication flows. Add these to your `.env`:
+
+```bash
+# Clerk Routes
+NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL="/"
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL="/"
+```
+
+### How It Works
+
+- **Sign In URL**: Users are redirected to `/sign-in` when authentication is required
+- **Sign Up URL**: New users are directed to `/sign-up` for account creation
+- **Fallback Redirects**: After authentication, users are sent to `/` (home page)
+
+You can customize these routes to match your application's navigation structure.
+
+## Server-Side Authentication
+
+ZapDev includes server-side authentication helpers in `src/lib/auth-server.ts` for use in Server Components and API routes.
+
+### Get Current User
+
+```typescript
+import { getUser } from "@/lib/auth-server";
+
+export default async function ProfilePage() {
+  const user = await getUser();
+  
+  if (!user) {
+    return <div>Please sign in</div>;
+  }
+
+  return <div>Welcome, {user.displayName}!</div>;
+}
+```
+
+**Returns**:
+```typescript
+type AuthenticatedUser = {
+  id: string;                    // Clerk user ID
+  primaryEmail: string | null;   // User's email
+  displayName: string | null;    // Full name, username, or first name
+  imageUrl: string | null;       // Profile picture URL
+};
+```
+
+### Get JWT Token
+
+```typescript
+import { getToken } from "@/lib/auth-server";
+
+const token = await getToken();
+// Returns JWT token with Convex template, or null if not authenticated
+```
+
+This token is used to authenticate Convex requests from the server.
+
+### Get Authenticated Convex Client
+
+```typescript
+import { getConvexClientWithAuth } from "@/lib/auth-server";
+
+export async function createProject(name: string) {
+  const convex = await getConvexClientWithAuth();
+  
+  return await convex.mutation(api.projects.create, {
+    name,
+    framework: "nextjs",
+  });
+}
+```
+
+This automatically:
+1. Creates a Convex HTTP client
+2. Retrieves the user's JWT token
+3. Sets the token for authenticated requests
+
+<Info>
+  All Convex mutations and queries from the server should use `getConvexClientWithAuth()` to ensure proper user context.
+</Info>
+
+## Client-Side Authentication
+
+Clerk provides React hooks for client-side authentication:
+
+### Check Authentication Status
+
+```typescript
+import { useUser } from "@clerk/nextjs";
+
+export function UserProfile() {
+  const { user, isLoaded, isSignedIn } = useUser();
+
+  if (!isLoaded) return <div>Loading...</div>;
+  if (!isSignedIn) return <div>Please sign in</div>;
+
+  return <div>Hello, {user.fullName}!</div>;
+}
+```
+
+### Sign Out Button
+
+```typescript
+import { useClerk } from "@clerk/nextjs";
+
+export function SignOutButton() {
+  const { signOut } = useClerk();
+
+  return (
+    <button onClick={() => signOut()}>
+      Sign Out
+    </button>
+  );
+}
+```
+
+## Protecting Routes
+
+### Server Components
+
+Use `getUser()` to protect server-rendered pages:
+
+```typescript
+import { getUser } from "@/lib/auth-server";
+import { redirect } from "next/navigation";
+
+export default async function DashboardPage() {
+  const user = await getUser();
+  
+  if (!user) {
+    redirect("/sign-in");
+  }
+
+  return <div>Protected content</div>;
+}
+```
+
+### Middleware Protection
+
+For route-level protection, use Clerk's middleware in `middleware.ts`:
+
+```typescript
+import { clerkMiddleware } from "@clerk/nextjs/server";
+
+export default clerkMiddleware();
+
+export const config = {
+  matcher: [
+    // Protect all routes except static assets
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+  ],
+};
+```
+
+## Convex Integration
+
+All Convex queries and mutations can access the authenticated user via `ctx.auth`:
+
+```typescript
+import { query } from "./_generated/server";
+
+export const getUserProjects = query(async (ctx) => {
+  const identity = await ctx.auth.getUserIdentity();
+  
+  if (!identity) {
+    throw new Error("Not authenticated");
+  }
+
+  return await ctx.db
+    .query("projects")
+    .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+    .collect();
+});
+```
+
+### User Identity Fields
+
+- `identity.subject` - Clerk user ID (use this as `userId` in your database)
+- `identity.email` - User's email address
+- `identity.name` - User's full name
+- `identity.pictureUrl` - Profile picture URL
+
+<Warning>
+  **Important**: Always validate `ctx.auth.getUserIdentity()` returns a valid identity before performing database operations. Never trust client-provided user IDs.
+</Warning>
+
+## Testing Authentication
+
+### Create a Test User
+
+1. Start your dev server: `npm run dev`
+2. Navigate to [http://localhost:3000/sign-up](http://localhost:3000/sign-up)
+3. Create an account using email or social login
+4. Verify the user appears in the Clerk Dashboard → **Users**
+
+### Test Protected Routes
+
+1. Visit a protected page while signed out (should redirect to `/sign-in`)
+2. Sign in and verify access is granted
+3. Sign out and confirm redirect behavior
+
+### Verify JWT Token
+
+In a Server Action or API route:
+
+```typescript
+import { getToken } from "@/lib/auth-server";
+
+export async function testAuth() {
+  const token = await getToken();
+  console.log("JWT Token:", token);
+  
+  // Decode the token to inspect claims (for debugging only)
+  if (token) {
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64").toString()
+    );
+    console.log("Token Payload:", payload);
+  }
+}
+```
+
+## Production Configuration
+
+### Update Production Keys
+
+When deploying to production:
+
+1. Create a **Production** instance in Clerk (separate from Development)
+2. Copy the production API keys
+3. Update environment variables in Vercel:
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+   - `CLERK_JWT_ISSUER_DOMAIN`
+
+<Warning>
+  **Never** use development Clerk keys in production. Always create separate Clerk instances for development and production.
+</Warning>
+
+### Configure Production Domain
+
+1. In Clerk Dashboard → **Domains**, add your production domain
+2. Update redirect URLs to use `https://your-domain.com`
+3. Configure CORS settings if using custom domains
+
+### Enable Production Features
+
+- **Email Verification**: Require email verification for new signups
+- **2FA**: Enable two-factor authentication for enhanced security
+- **Session Limits**: Configure session duration and token expiration
+- **Webhooks**: Set up Clerk webhooks to sync user data with your database
+
+## Troubleshooting
+
+### "Invalid JWT" Errors
+
+1. Verify `CLERK_JWT_ISSUER_DOMAIN` matches the issuer in your JWT template
+2. Check that the JWT template name is exactly `convex`
+3. Ensure Convex is configured with the correct Clerk issuer domain
+
+### Sign-In Redirect Loop
+
+1. Check that `NEXT_PUBLIC_CLERK_SIGN_IN_URL` is set to `/sign-in`
+2. Verify middleware is not blocking auth routes
+3. Clear browser cookies and try again
+
+### User Identity Null in Convex
+
+1. Confirm the user is authenticated on the client
+2. Verify the Convex client is using `useConvexAuth()` or `getConvexClientWithAuth()`
+3. Check that the JWT token is being sent with requests (inspect network tab)
+
+### Profile Picture Not Loading
+
+1. Ensure `imageUrl` is not null in user object
+2. Check CORS settings allow loading images from Clerk's CDN
+3. Verify the image URL is valid (test in browser)
+
+## Next Steps
+
+- [Configure E2B Sandboxes](/deployment/e2b-sandboxes)
+- [Set up Inngest](/deployment/inngest-setup)
+- Deploy to Vercel with production environment variables
+- Configure Clerk webhooks for user sync

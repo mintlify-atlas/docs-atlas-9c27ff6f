@@ -1,0 +1,641 @@
+---
+title: File Explorer with Syntax Highlighting
+description: Browse, inspect, and copy AI-generated code with an intuitive file tree and professional syntax highlighting
+---
+
+## Overview
+
+ZapDev's file explorer provides a familiar IDE-like experience for browsing your AI-generated codebase. View hierarchical file structures, inspect source code with syntax highlighting, and copy files to your clipboard with a single click.
+
+<Info>
+The file explorer automatically filters out system files (like `node_modules/`, `.next/`, etc.) to show only your AI-generated application code.
+</Info>
+
+## Interface Components
+
+The file explorer consists of two resizable panels:
+
+```
+┌──────────────────┬───────────────────────────────────────┐
+│                  │                                       │
+│   File Tree      │         Code Viewer                   │
+│                  │                                       │
+│  📁 app/         │  ┌─────────────────────────────────┐ │
+│    📄 page.tsx   │  │ app / page.tsx            [Copy]│ │
+│    📄 layout.tsx │  ├─────────────────────────────────┤ │
+│  📁 components/  │  │                                 │ │
+│    📁 ui/        │  │  'use client';                  │ │
+│    📄 hero.tsx   │  │                                 │ │
+│  📁 lib/         │  │  export default function Page() │ │
+│    📄 utils.ts   │  │    return (                     │ │
+│                  │  │      <div>...</div>             │ │
+│  [30% width]     │  │    );                           │ │
+│                  │  │  }                              │ │
+└──────────────────┴──────────────────────────────────────┘
+```
+
+## File Tree Panel
+
+### Hierarchical Structure
+
+Files are organized in a nested tree view:
+
+```tsx
+// From src/components/file-explorer.tsx
+import { TreeView } from "./tree-view";
+import { convertFilesToTreeItems } from "@/lib/utils";
+
+const treeData = useMemo(() => {
+  return convertFilesToTreeItems(files);
+}, [files]);
+
+<TreeView
+  data={treeData}
+  value={selectedFile}
+  onSelect={handleFileSelect}
+/>
+```
+
+**Example Tree Structure**:
+```
+📁 app/
+  ├── 📄 page.tsx
+  ├── 📄 layout.tsx
+  └── 📄 globals.css
+📁 components/
+  ├── 📁 ui/
+  │   ├── 📄 button.tsx
+  │   ├── 📄 card.tsx
+  │   ├── 📄 dialog.tsx
+  │   └── 📄 input.tsx
+  ├── 📄 hero.tsx
+  ├── 📄 navbar.tsx
+  └── 📄 footer.tsx
+📁 lib/
+  ├── 📄 utils.ts
+  └── 📄 cn.ts
+📄 package.json
+📄 tsconfig.json
+📄 tailwind.config.ts
+```
+
+### File Type Icons
+
+Different file types get appropriate icons:
+
+| File Type | Icon | Extensions |
+|-----------|------|------------|
+| **Folder** | 📁 | Directories |
+| **TypeScript** | 📘 | `.ts`, `.tsx` |
+| **JavaScript** | 📙 | `.js`, `.jsx` |
+| **Styles** | 🎨 | `.css`, `.scss`, `.sass` |
+| **Config** | ⚙️ | `.json`, `.yaml`, `.toml` |
+| **Markdown** | 📝 | `.md`, `.mdx` |
+| **Generic** | 📄 | All others |
+
+### Tree Interactions
+
+<Tabs>
+  <Tab title="Select File">
+    Click any file to view its contents:
+    
+    ```tsx
+    const handleFileSelect = useCallback((filePath: string) => {
+      if (files[filePath]) {
+        setSelectedFile(filePath);
+      }
+    }, [files]);
+    ```
+    
+    - **Visual feedback**: Selected file is highlighted
+    - **Instant loading**: Code appears immediately
+    - **Breadcrumb updates**: Path updates in header
+  </Tab>
+  
+  <Tab title="Expand/Collapse Folders">
+    Click folder icons to expand/collapse:
+    
+    ```tsx
+    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+    
+    const toggleFolder = (folderPath: string) => {
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        if (next.has(folderPath)) {
+          next.delete(folderPath);
+        } else {
+          next.add(folderPath);
+        }
+        return next;
+      });
+    };
+    ```
+    
+    - **Persistent state**: Expansion state preserved during session
+    - **Keyboard support**: Arrow keys navigate, Enter toggles
+    - **Auto-expand**: Parent folders of selected file auto-expand
+  </Tab>
+  
+  <Tab title="Keyboard Navigation">
+    Navigate files with keyboard:
+    
+    | Key | Action |
+    |-----|--------|
+    | `↑/↓` | Navigate up/down |
+    | `→` | Expand folder |
+    | `←` | Collapse folder |
+    | `Enter` | Select file |
+    | `Space` | Toggle folder |
+    
+    ```tsx
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'ArrowUp': selectPreviousFile(); break;
+        case 'ArrowDown': selectNextFile(); break;
+        case 'ArrowRight': expandFolder(); break;
+        case 'ArrowLeft': collapseFolder(); break;
+        case 'Enter': selectCurrentFile(); break;
+      }
+    };
+    ```
+  </Tab>
+</Tabs>
+
+### File Filtering
+
+System and build files are automatically hidden:
+
+```typescript
+// From src/lib/filter-ai-files.ts
+const EXCLUDED_PATTERNS = [
+  'node_modules/',        // Dependencies
+  '.next/',               // Next.js build
+  'dist/',                // Build output
+  'build/',               // Build output
+  '.git/',                // Version control
+  '.angular/',            // Angular cache
+  'package-lock.json',    // Lock files
+  'bun.lockb',           // Lock files
+  '.turbo/',             // Turbopack cache
+  '.cache/'              // General cache
+];
+
+export function filterAIGeneratedFiles(files: Record<string, string>) {
+  return Object.entries(files)
+    .filter(([path]) => 
+      !EXCLUDED_PATTERNS.some(pattern => path.includes(pattern))
+    )
+    .reduce((acc, [path, content]) => ({ 
+      ...acc, 
+      [path]: content 
+    }), {});
+}
+```
+
+**What you see**: Only AI-generated application code
+
+**What's hidden**: System files, dependencies, build artifacts
+
+## Code Viewer Panel
+
+### Syntax Highlighting
+
+Professional code highlighting powered by Prism.js:
+
+```tsx
+// From src/components/code-view/index.tsx
+import Prism from "prismjs";
+import "prismjs/components/prism-javascript";
+import "prismjs/components/prism-jsx";
+import "prismjs/components/prism-tsx";
+import "prismjs/components/prism-typescript";
+import "./code-theme.css";
+
+export const CodeView = ({ code, lang }: { code: string; lang: string }) => {
+  useEffect(() => {
+    Prism.highlightAll();
+  }, [code]);
+  
+  return (
+    <pre className="p-2 bg-transparent border-none rounded-none m-0 text-xs">
+      <code className={`language-${lang}`}>
+        {code}
+      </code>
+    </pre>
+  );
+};
+```
+
+### Supported Languages
+
+<CodeGroup>
+```tsx TypeScript/TSX
+'use client';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
+export default function Page() {
+  return (
+    <Card className="p-6">
+      <Button>Click Me</Button>
+    </Card>
+  );
+}
+```
+
+```jsx JavaScript/JSX
+import React, { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>
+        Increment
+      </button>
+    </div>
+  );
+}
+```
+
+```css CSS/SCSS
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.custom-class {
+  @apply flex items-center justify-between;
+  background: linear-gradient(to right, #667eea, #764ba2);
+}
+```
+
+```json JSON
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "next": "15.3.3",
+    "react": "19.0.0"
+  }
+}
+```
+</CodeGroup>
+
+### Language Detection
+
+Automatic language detection from file extensions:
+
+```typescript
+function getLanguageFromExtension(filename: string): string {
+  const extension = filename.split(".").pop()?.toLowerCase();
+  
+  const languageMap: Record<string, string> = {
+    'ts': 'typescript',
+    'tsx': 'tsx',
+    'js': 'javascript',
+    'jsx': 'jsx',
+    'json': 'json',
+    'css': 'css',
+    'scss': 'scss',
+    'html': 'html',
+    'md': 'markdown',
+    'yaml': 'yaml',
+    'yml': 'yaml'
+  };
+  
+  return languageMap[extension || ''] || 'text';
+}
+```
+
+### Code Theme
+
+Dark theme optimized for readability:
+
+```css
+/* From src/components/code-view/code-theme.css */
+.token.comment { color: #6a9955; }
+.token.string { color: #ce9178; }
+.token.keyword { color: #569cd6; }
+.token.function { color: #dcdcaa; }
+.token.class-name { color: #4ec9b0; }
+.token.operator { color: #d4d4d4; }
+.token.punctuation { color: #d4d4d4; }
+```
+
+**Color Scheme**:
+- **Keywords** (import, export, const): Blue (#569cd6)
+- **Strings**: Orange (#ce9178)
+- **Functions**: Yellow (#dcdcaa)
+- **Classes/Types**: Teal (#4ec9b0)
+- **Comments**: Green (#6a9955)
+
+## Breadcrumb Navigation
+
+Clear path indication for deeply nested files:
+
+```tsx
+// From src/components/file-explorer.tsx
+const FileBreadcrumb = ({ filePath }: { filePath: string }) => {
+  const pathSegments = filePath.split("/");
+  const maxSegments = 4;
+  
+  const renderBreadcrumbItems = () => {
+    if (pathSegments.length <= maxSegments) {
+      // Show all segments
+      return pathSegments.map((segment, index) => {
+        const isLast = index === pathSegments.length - 1;
+        return (
+          <Fragment key={index}>
+            <BreadcrumbItem>
+              {isLast ? (
+                <BreadcrumbPage className="font-medium">
+                  {segment}
+                </BreadcrumbPage>
+              ) : (
+                <span className="text-muted-foreground">{segment}</span>
+              )}
+            </BreadcrumbItem>
+            {!isLast && <BreadcrumbSeparator />}
+          </Fragment>
+        );
+      });
+    } else {
+      // Truncate middle segments
+      const firstSegment = pathSegments[0];
+      const lastSegment = pathSegments[pathSegments.length - 1];
+      
+      return (
+        <>
+          <BreadcrumbItem>
+            <span className="text-muted-foreground">{firstSegment}</span>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbEllipsis />
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="font-medium">
+              {lastSegment}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </>
+      );
+    }
+  };
+  
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>{renderBreadcrumbItems()}</BreadcrumbList>
+    </Breadcrumb>
+  );
+};
+```
+
+**Examples**:
+
+```
+Short path:
+app / page.tsx
+
+Medium path:
+components / ui / button.tsx
+
+Long path:
+app / ... / button.tsx
+```
+
+## Copy to Clipboard
+
+One-click file copying:
+
+```tsx
+const [copied, setCopied] = useState(false);
+
+const handleCopy = useCallback(() => {
+  if (selectedFile) {
+    navigator.clipboard.writeText(files[selectedFile]);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+}, [selectedFile, files]);
+
+<Hint text="Copy to clipboard" side="bottom">
+  <Button
+    variant="outline"
+    size="icon"
+    onClick={handleCopy}
+  >
+    {copied ? (
+      <CopyCheckIcon className="h-4 w-4 text-green-500" />
+    ) : (
+      <CopyIcon className="h-4 w-4" />
+    )}
+  </Button>
+</Hint>
+```
+
+**User Feedback**:
+- ✅ Icon changes to checkmark on success
+- ✅ Green color for 2 seconds
+- ✅ Tooltip shows "Copy to clipboard"
+- ✅ Returns to copy icon after timeout
+
+## Resizable Panels
+
+Adjust panel sizes to your preference:
+
+```tsx
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle
+} from "@/components/ui/resizable";
+
+<ResizablePanelGroup direction="horizontal">
+  {/* File Tree */}
+  <ResizablePanel 
+    defaultSize={30} 
+    minSize={20}
+    maxSize={50}
+    className="bg-sidebar"
+  >
+    <TreeView />
+  </ResizablePanel>
+  
+  {/* Resize Handle */}
+  <ResizableHandle className="hover:bg-primary transition-colors" />
+  
+  {/* Code Viewer */}
+  <ResizablePanel 
+    defaultSize={70} 
+    minSize={50}
+  >
+    <CodeView />
+  </ResizablePanel>
+</ResizablePanelGroup>
+```
+
+**Features**:
+- Drag handle to resize
+- Minimum/maximum size constraints
+- Smooth transitions on hover
+- Layout persists during session
+
+## Performance Optimizations
+
+### Virtualized Tree (Future)
+
+For projects with 100+ files:
+
+```tsx
+import { FixedSizeTree } from 'react-window';
+
+const VirtualizedTree = ({ files, height }) => (
+  <FixedSizeTree
+    treeWalker={treeWalker}
+    itemSize={30}
+    height={height}
+    width="100%"
+  >
+    {Node}
+  </FixedSizeTree>
+);
+```
+
+### Memoized Computations
+
+Expensive operations are cached:
+
+```tsx
+// Tree data conversion
+const treeData = useMemo(() => {
+  return convertFilesToTreeItems(files);
+}, [files]);
+
+// Language detection
+const language = useMemo(() => {
+  return getLanguageFromExtension(selectedFile || '');
+}, [selectedFile]);
+
+// Filtered files
+const displayFiles = useMemo(() => {
+  return filterAIGeneratedFiles(files);
+}, [files]);
+```
+
+### Lazy Syntax Highlighting
+
+Code is highlighted only when visible:
+
+```tsx
+const CodeView = ({ code, lang }) => {
+  const [isHighlighted, setIsHighlighted] = useState(false);
+  
+  useEffect(() => {
+    if (!isHighlighted) {
+      Prism.highlightAll();
+      setIsHighlighted(true);
+    }
+  }, [code, isHighlighted]);
+  
+  // Render...
+};
+```
+
+## Real-Time Updates
+
+File explorer updates as AI generates code:
+
+```tsx
+const [streamingFiles, setStreamingFiles] = useState<Record<string, string>>({});
+
+// Stream events from AI
+const handleStreamEvent = (event: StreamEvent) => {
+  if (event.type === 'file-created') {
+    setStreamingFiles(prev => ({
+      ...prev,
+      [event.data.path]: event.data.content
+    }));
+  } else if (event.type === 'file-updated') {
+    setStreamingFiles(prev => ({
+      ...prev,
+      [event.data.path]: event.data.content
+    }));
+  }
+};
+
+// Merge streaming files with final files
+const allFiles = useMemo(() => {
+  return { ...streamingFiles, ...fragmentFiles };
+}, [streamingFiles, fragmentFiles]);
+```
+
+**Update Flow**:
+1. AI generates file → Stream event fires
+2. File added to `streamingFiles` state
+3. Tree view re-renders with new file
+4. Auto-select first file if none selected
+5. Code viewer shows new content
+
+## Accessibility
+
+### Keyboard Navigation
+
+```tsx
+<div
+  role="tree"
+  aria-label="File explorer"
+  onKeyDown={handleKeyDown}
+  tabIndex={0}
+>
+  <TreeView />
+</div>
+```
+
+### Screen Reader Support
+
+```tsx
+<button
+  aria-label={`Select file ${filename}`}
+  aria-selected={isSelected}
+  role="treeitem"
+>
+  {filename}
+</button>
+```
+
+### Focus Management
+
+```tsx
+const fileRef = useRef<HTMLButtonElement>(null);
+
+useEffect(() => {
+  if (isSelected) {
+    fileRef.current?.focus();
+  }
+}, [isSelected]);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Live Preview" icon="eye" href="/features/live-preview">
+    See how the preview tab works alongside file explorer
+  </Card>
+  
+  <Card title="AI Code Generation" icon="wand-magic-sparkles" href="/features/ai-code-generation">
+    Learn how AI generates the code you're viewing
+  </Card>
+  
+  <Card title="Real-Time Sandboxes" icon="box" href="/features/real-time-sandboxes">
+    Understand where files are stored and executed
+  </Card>
+  
+  <Card title="Multi-Framework Support" icon="layer-group" href="/features/multi-framework-support">
+    Explore different file structures across frameworks
+  </Card>
+</CardGroup>

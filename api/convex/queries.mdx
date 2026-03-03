@@ -1,0 +1,569 @@
+---
+title: Convex Queries
+description: Reference for all Convex query functions in ZapDev - read operations for projects, messages, usage, and more
+---
+
+Convex queries are **reactive, read-only** operations that automatically re-run when underlying data changes. All queries in ZapDev enforce authentication and authorization.
+
+## Projects
+
+### projects.list
+
+Get all projects for the authenticated user with preview attachments.
+
+```typescript
+const projects = await ctx.runQuery(api.projects.list, {});
+```
+
+**Returns:** Array of projects with `previewAttachment` field (most recent image attachment from latest message).
+
+**Authentication:** Returns empty array if not authenticated.
+
+---
+
+### projects.listShowcase
+
+Get up to 12 public projects that have at least one fragment (for showcase page).
+
+```typescript
+const showcase = await ctx.runQuery(api.projects.listShowcase, {});
+```
+
+**Returns:** Array of projects with `messageCount` and `hasFragment` fields.
+
+**Authentication:** Public query (no auth required).
+
+---
+
+### projects.get
+
+Get a single project by ID.
+
+```typescript
+const project = await ctx.runQuery(api.projects.get, {
+  projectId: "j57...",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+
+**Returns:** Project document
+
+**Throws:** If project not found or user doesn't own it
+
+---
+
+### projects.getForSystem
+
+Get a project without authentication (system-level, for Inngest only).
+
+```typescript
+const project = await ctx.runQuery(api.projects.getForSystem, {
+  projectId: "j57...",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+
+**Returns:** Project document
+
+**Authentication:** None (trusted system access)
+
+---
+
+### projects.getForUser
+
+Get a project for a specific user (for background jobs/Inngest).
+
+```typescript
+const project = await ctx.runQuery(api.projects.getForUser, {
+  userId: "user_123",
+  projectId: "j57...",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+- `projectId: Id<"projects">` - Project ID
+
+**Returns:** Project document
+
+**Throws:** If user doesn't own the project
+
+## Messages
+
+### messages.list
+
+Get all messages for a project with fragments and attachments.
+
+```typescript
+const messages = await ctx.runQuery(api.messages.list, {
+  projectId: "j57...",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+
+**Returns:** Array of messages with `Fragment` (object or null) and `Attachment` (array) fields.
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.get
+
+Get a single message by ID.
+
+```typescript
+const message = await ctx.runQuery(api.messages.get, {
+  messageId: "j97...",
+});
+```
+
+**Arguments:**
+- `messageId: Id<"messages">` - Message ID
+
+**Returns:** Message document
+
+**Throws:** If message not found or user doesn't own the project
+
+---
+
+### messages.getFragment
+
+Get the fragment for a message.
+
+```typescript
+const fragment = await ctx.runQuery(api.messages.getFragment, {
+  messageId: "j97...",
+});
+```
+
+**Arguments:**
+- `messageId: Id<"messages">` - Message ID
+
+**Returns:** Fragment document or null
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.getAttachments
+
+Get all attachments for a message.
+
+```typescript
+const attachments = await ctx.runQuery(api.messages.getAttachments, {
+  messageId: "j97...",
+});
+```
+
+**Arguments:**
+- `messageId: Id<"messages">` - Message ID
+
+**Returns:** Array of attachment documents
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.getFragmentById
+
+Get a fragment by ID (public, no auth).
+
+```typescript
+const fragment = await ctx.runQuery(api.messages.getFragmentById, {
+  fragmentId: "k12...",
+});
+```
+
+**Arguments:**
+- `fragmentId: Id<"fragments">` - Fragment ID
+
+**Returns:** Fragment document
+
+**Authentication:** Public query
+
+---
+
+### messages.getFragmentByIdAuth
+
+Get a fragment by ID with authorization check.
+
+```typescript
+const result = await ctx.runQuery(api.messages.getFragmentByIdAuth, {
+  fragmentId: "k12...",
+});
+```
+
+**Arguments:**
+- `fragmentId: Id<"fragments">` - Fragment ID
+
+**Returns:** Object with `fragment`, `message`, and `project` fields
+
+**Throws:** If user doesn't own the project
+
+---
+
+### messages.listForUser
+
+List messages for a specific user (for background jobs/Inngest).
+
+```typescript
+const messages = await ctx.runQuery(api.messages.listForUser, {
+  userId: "user_123",
+  projectId: "j57...",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+- `projectId: Id<"projects">` - Project ID
+
+**Returns:** Array of messages with `fragment` and `attachments` fields
+
+## Usage & Credits
+
+### usage.getUsage
+
+Get current credit usage for the authenticated user.
+
+```typescript
+const usage = await ctx.runQuery(api.usage.getUsage, {});
+```
+
+**Returns:**
+```typescript
+{
+  points: number;               // Current credits remaining
+  maxPoints: number;            // Max credits for plan
+  expire: number;               // When credits reset (timestamp)
+  planType: "free" | "pro" | "unlimited";
+  remainingPoints: number;      // Alias for points
+  creditsRemaining: number;     // Alias for points
+  msBeforeNext: number;         // Milliseconds until reset
+}
+```
+
+**Credit Limits:**
+- Free: 5/day
+- Pro: 100/day
+- Unlimited: Unlimited
+
+---
+
+### usage.getUsageForUser
+
+Get usage for a specific user (for actions).
+
+```typescript
+const usage = await ctx.runQuery(api.usage.getUsageForUser, {
+  userId: "user_123",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+
+**Returns:** Same as `getUsage`
+
+## Subscriptions
+
+### subscriptions.getSubscription
+
+Get active subscription for the authenticated user.
+
+```typescript
+const subscription = await ctx.runQuery(api.subscriptions.getSubscription, {});
+```
+
+**Returns:** Active subscription document or null
+
+---
+
+### subscriptions.getSubscriptionByPolarId
+
+Get subscription by Polar subscription ID.
+
+```typescript
+const subscription = await ctx.runQuery(api.subscriptions.getSubscriptionByPolarId, {
+  polarSubscriptionId: "sub_123",
+});
+```
+
+**Arguments:**
+- `polarSubscriptionId: string` - Polar subscription ID
+
+**Returns:** Subscription document or null
+
+---
+
+### subscriptions.getUserSubscriptions
+
+Get all subscriptions for a user.
+
+```typescript
+const subscriptions = await ctx.runQuery(api.subscriptions.getUserSubscriptions, {
+  userId: "user_123",
+});
+```
+
+**Arguments:**
+- `userId: string` - Clerk user ID
+
+**Returns:** Array of subscription documents
+
+## Imports
+
+### imports.getImport
+
+Get an import by ID.
+
+```typescript
+const importRecord = await ctx.runQuery(api.imports.getImport, {
+  importId: "k34...",
+});
+```
+
+**Arguments:**
+- `importId: Id<"imports">` - Import ID
+
+**Returns:** Import document
+
+**Throws:** If import not found or user doesn't own it
+
+---
+
+### imports.listByProject
+
+List all imports for a project.
+
+```typescript
+const imports = await ctx.runQuery(api.imports.listByProject, {
+  projectId: "j57...",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+
+**Returns:** Array of import documents
+
+---
+
+### imports.listByUser
+
+List all imports for the authenticated user.
+
+```typescript
+const imports = await ctx.runQuery(api.imports.listByUser, {});
+```
+
+**Returns:** Array of import documents
+
+## OAuth Connections
+
+### oauth.getConnection
+
+Get OAuth connection for a provider.
+
+```typescript
+const connection = await ctx.runQuery(api.oauth.getConnection, {
+  provider: "figma",
+});
+```
+
+**Arguments:**
+- `provider: "figma" | "github"` - OAuth provider
+
+**Returns:** OAuth connection document or null
+
+---
+
+### oauth.listConnections
+
+List all OAuth connections for the authenticated user.
+
+```typescript
+const connections = await ctx.runQuery(api.oauth.listConnections, {});
+```
+
+**Returns:** Array of OAuth connection documents
+
+## Rate Limiting
+
+### rateLimit.getRateLimitStatus
+
+Get current rate limit status for a key.
+
+```typescript
+const status = await ctx.runQuery(api.rateLimit.getRateLimitStatus, {
+  key: "user_123_api",
+});
+```
+
+**Arguments:**
+- `key: string` - Rate limit key
+
+**Returns:**
+```typescript
+{
+  count: number;          // Current count in window
+  limit: number;          // Max requests allowed
+  windowStart: number;    // Window start timestamp
+  resetTime: number;      // When window resets
+  remaining: number;      // Requests remaining
+} | null
+```
+
+## Agent Runs
+
+### agentRuns.listPendingForProject
+
+List pending agent runs for a project (WebContainer execution).
+
+```typescript
+const pendingRuns = await ctx.runQuery(api.agentRuns.listPendingForProject, {
+  projectId: "j57...",
+});
+```
+
+**Arguments:**
+- `projectId: Id<"projects">` - Project ID
+
+**Returns:** Array of pending agent run documents sorted by creation time (oldest first)
+
+**Throws:** If user doesn't own the project
+
+## Helper Functions
+
+These are internal helpers used in mutations and queries:
+
+### requireAuth
+
+Ensure user is authenticated and return their Clerk user ID.
+
+```typescript
+import { requireAuth } from "./helpers";
+
+const userId = await requireAuth(ctx);
+```
+
+**Throws:** If user is not authenticated
+
+---
+
+### getCurrentUserId
+
+Get current user ID or null.
+
+```typescript
+import { getCurrentUserId } from "./helpers";
+
+const userId = await getCurrentUserId(ctx);
+```
+
+**Returns:** Clerk user ID or null
+
+---
+
+### hasProAccess
+
+Check if user has active Pro subscription.
+
+```typescript
+import { hasProAccess } from "./helpers";
+
+const isPro = await hasProAccess(ctx);
+```
+
+**Returns:** `true` if user has active Pro subscription
+
+---
+
+### hasUnlimitedAccess
+
+Check if user has active Unlimited subscription.
+
+```typescript
+import { hasUnlimitedAccess } from "./helpers";
+
+const isUnlimited = await hasUnlimitedAccess(ctx);
+```
+
+**Returns:** `true` if user has active Unlimited subscription
+
+---
+
+### getCurrentUserPolarCustomerId
+
+Get Polar customer ID for current user.
+
+```typescript
+import { getCurrentUserPolarCustomerId } from "./helpers";
+
+const customerId = await getCurrentUserPolarCustomerId(ctx);
+```
+
+**Returns:** Polar customer ID or null
+
+## Usage Examples
+
+### Get Project with Messages
+
+```typescript
+import { api } from "@/convex/_generated/api";
+import { useQuery } from "convex/react";
+
+function ProjectView({ projectId }) {
+  const project = useQuery(api.projects.get, { projectId });
+  const messages = useQuery(api.messages.list, { projectId });
+
+  if (project === undefined || messages === undefined) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div>
+      <h1>{project.name}</h1>
+      {messages.map((msg) => (
+        <div key={msg._id}>
+          <p>{msg.content}</p>
+          {msg.Fragment && <CodePreview files={msg.Fragment.files} />}
+          {msg.Attachment.map((att) => <img src={att.url} />)}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Check Credits Before Action
+
+```typescript
+import { api } from "@/convex/_generated/api";
+import { useMutation, useQuery } from "convex/react";
+
+function GenerateButton() {
+  const usage = useQuery(api.usage.getUsage, {});
+  const create = useMutation(api.messages.createWithAttachments);
+
+  const handleClick = async () => {
+    if (usage && usage.creditsRemaining <= 0) {
+      alert("Out of credits!");
+      return;
+    }
+
+    await create({ value: "Build a todo app", projectId: "..." });
+  };
+
+  return (
+    <button onClick={handleClick}>
+      Generate ({usage?.creditsRemaining ?? 0} credits left)
+    </button>
+  );
+}
+```

@@ -1,0 +1,471 @@
+---
+title: "Deploy to Vercel"
+description: "Complete guide to deploying ZapDev to Vercel with Convex, Inngest Cloud, and E2B integration"
+---
+
+Vercel is the **recommended platform** for deploying ZapDev. This guide covers the complete deployment process including Convex backend, Inngest Cloud integration, and all required services.
+
+## Prerequisites
+
+Before deploying, ensure you have accounts for:
+
+- **Vercel** - Hosting platform
+- **Convex** - Real-time database backend
+- **Inngest Cloud** - Background job processing
+- **Clerk** - Authentication (or Stack Auth)
+- **E2B** - Code sandbox environment
+- **Polar.sh** - Billing and subscriptions
+- **OpenRouter** - AI model gateway
+- **Cerebras** - Ultra-fast AI inference (optional)
+
+## Step 1: Set Up Inngest Cloud
+
+Inngest Cloud handles background AI code generation workflows.
+
+<Steps>
+  <Step title="Create an Inngest Account">
+    Go to [Inngest Cloud](https://app.inngest.com) and sign up or log in
+  </Step>
+
+  <Step title="Create a New App">
+    - Click "Create App" in the dashboard
+    - Name your app (e.g., `zapdev-production`)
+  </Step>
+
+  <Step title="Get Your Keys">
+    Navigate to your app settings and copy:
+    - **Event Key** (starts with `ac9_`)
+    - **Signing Key** (starts with `signkey-`)
+    
+    You'll need these for Vercel environment variables.
+  </Step>
+</Steps>
+
+## Step 2: Deploy Convex Backend
+
+Convex provides the real-time database for ZapDev.
+
+<Steps>
+  <Step title="Install Convex CLI">
+    ```bash
+    bun install -g convex
+    ```
+  </Step>
+
+  <Step title="Login to Convex">
+    ```bash
+    bunx convex login
+    ```
+  </Step>
+
+  <Step title="Create Production Deployment">
+    ```bash
+    bunx convex deploy
+    ```
+    
+    This will:
+    - Create a production deployment
+    - Provide your `NEXT_PUBLIC_CONVEX_URL`
+    - Deploy your database schema and functions
+  </Step>
+
+  <Step title="Copy Convex URL">
+    Save the `NEXT_PUBLIC_CONVEX_URL` from the deployment output - you'll need it for Vercel.
+  </Step>
+</Steps>
+
+## Step 3: Build E2B Sandbox Template
+
+<Warning>
+  This step is **required** before deployment. The E2B template must be built with Docker running.
+</Warning>
+
+<Steps>
+  <Step title="Install E2B CLI">
+    ```bash
+    bun install -g @e2b/cli
+    # or
+    brew install e2b
+    ```
+  </Step>
+
+  <Step title="Login to E2B">
+    ```bash
+    e2b auth login
+    ```
+  </Step>
+
+  <Step title="Build the Template">
+    ```bash
+    cd sandbox-templates/nextjs
+    e2b template build --name zapdev-production --cmd "/compile_page.sh"
+    ```
+    
+    **Important**: Docker must be installed and running for this command.
+  </Step>
+
+  <Step title="Update Template Name">
+    After building, update the template name in your codebase:
+    
+    ```typescript
+    // src/inngest/functions.ts (line ~22)
+    const sandbox = await Sandbox.create("zapdev-production");
+    ```
+    
+    Commit this change before deploying to Vercel.
+  </Step>
+</Steps>
+
+## Step 4: Deploy to Vercel
+
+<Steps>
+  <Step title="Push to GitHub">
+    ```bash
+    git add .
+    git commit -m "chore: prepare for production deployment"
+    git push origin main
+    ```
+  </Step>
+
+  <Step title="Import to Vercel">
+    - Go to [Vercel Dashboard](https://vercel.com/dashboard)
+    - Click "New Project"
+    - Import your GitHub repository
+    - Select the repository containing ZapDev
+  </Step>
+
+  <Step title="Configure Build Settings">
+    Vercel should auto-detect Next.js. Verify:
+    
+    - **Framework Preset**: Next.js
+    - **Build Command**: `bun run build`
+    - **Install Command**: `bun install`
+    - **Output Directory**: `.next` (default)
+  </Step>
+
+  <Step title="Add Environment Variables">
+    In the Vercel project settings, add all environment variables (see below).
+    
+    <Tip>
+      Copy from your local `.env` file, but replace development URLs with production values.
+    </Tip>
+  </Step>
+
+  <Step title="Deploy">
+    Click "Deploy" and wait for the build to complete (typically 2-3 minutes).
+  </Step>
+</Steps>
+
+## Step 5: Configure Environment Variables
+
+Add these environment variables in your Vercel project settings:
+
+### Application
+```bash
+NEXT_PUBLIC_APP_URL="https://your-app.vercel.app"
+```
+
+### Convex Database
+```bash
+NEXT_PUBLIC_CONVEX_URL="https://your-deployment.convex.cloud"
+NEXT_PUBLIC_CONVEX_SITE_URL="https://your-app.vercel.app"
+```
+
+### Clerk Authentication
+```bash
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_live_..."
+CLERK_SECRET_KEY="sk_live_..."
+CLERK_JWT_ISSUER_DOMAIN="clerk.your-domain.com"
+CLERK_JWT_TEMPLATE_NAME="convex"
+```
+
+<Note>
+  Create a JWT template named "convex" in Clerk Dashboard → JWT Templates for Convex integration.
+</Note>
+
+### Polar.sh Billing
+```bash
+POLAR_ACCESS_TOKEN="polar_at_..."
+POLAR_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_POLAR_ORGANIZATION_ID="org_..."
+NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID="prod_..."
+NEXT_PUBLIC_POLAR_PRO_PRICE_ID="price_..."
+NEXT_PUBLIC_POLAR_PRO_YEARLY_PRICE_ID="price_..."
+NEXT_PUBLIC_POLAR_UNLIMITED_PRODUCT_ID="prod_..."
+NEXT_PUBLIC_POLAR_UNLIMITED_PRICE_ID="price_..."
+NEXT_PUBLIC_POLAR_SERVER="production"
+```
+
+### AI Services
+```bash
+# OpenRouter (AI Gateway)
+OPENROUTER_API_KEY="sk-or-..."
+OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
+
+# Cerebras (Ultra-fast inference)
+CEREBRAS_API_KEY="csk-..."
+
+# Vercel AI Gateway (fallback)
+VERCEL_AI_GATEWAY_API_KEY="..."
+```
+
+### E2B Sandboxes
+```bash
+E2B_API_KEY="e2b_..."
+```
+
+### Inngest (Background Jobs)
+```bash
+INNGEST_EVENT_KEY="ac9_..."
+INNGEST_SIGNING_KEY="signkey-..."
+```
+
+### Optional Services
+```bash
+# Brave Search (web research)
+BRAVE_SEARCH_API_KEY="..."
+
+# Firecrawl (web scraping)
+FIRECRAWL_API_KEY="..."
+
+# UploadThing (file uploads)
+UPLOADTHING_TOKEN="..."
+
+# Sentry (error monitoring)
+NEXT_PUBLIC_SENTRY_DSN="https://..."
+SENTRY_DSN="https://..."
+```
+
+## Step 6: Sync with Inngest Cloud
+
+After Vercel deployment completes, connect Inngest to your app:
+
+<Steps>
+  <Step title="Get Your Vercel URL">
+    Copy your deployed app URL (e.g., `https://your-app.vercel.app`)
+  </Step>
+
+  <Step title="Sync with Inngest">
+    - Go to [Inngest Dashboard](https://app.inngest.com)
+    - Navigate to your app
+    - Click "Sync App"
+    - Add URL: `https://your-app.vercel.app/api/inngest`
+    - Click "Sync"
+  </Step>
+
+  <Step title="Verify Connection">
+    Inngest will connect to your endpoint. You should see:
+    - Status: "Connected"
+    - Functions listed: `codeAgentFunction`, `auto-pause-sandboxes`
+    - No error messages
+  </Step>
+</Steps>
+
+## Step 7: Configure Webhooks
+
+### Clerk Webhooks
+
+<Steps>
+  <Step title="Update Webhook URL">
+    - Go to Clerk Dashboard → Webhooks
+    - Update webhook URL to: `https://your-app.vercel.app/api/webhooks/clerk`
+  </Step>
+
+  <Step title="Enable Events">
+    Ensure these events are enabled:
+    - `user.created`
+    - `user.updated`
+    - `session.created`
+  </Step>
+</Steps>
+
+### Polar.sh Webhooks
+
+<Steps>
+  <Step title="Configure Webhook">
+    - Go to Polar.sh Dashboard → Webhooks
+    - Add endpoint: `https://your-app.vercel.app/api/webhooks/polar`
+    - Copy the webhook secret to `POLAR_WEBHOOK_SECRET`
+  </Step>
+</Steps>
+
+## Step 8: Set Up Cron Jobs
+
+ZapDev includes a cron job for sandbox cleanup defined in `vercel.json`:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-sandboxes",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
+```
+
+This runs daily at midnight UTC. Vercel automatically registers this cron job on deployment.
+
+<Tip>
+  View cron job execution logs in Vercel Dashboard → Logs → Filter by `/api/cron/cleanup-sandboxes`
+</Tip>
+
+## Monitoring Your Deployment
+
+### Vercel Dashboard
+
+- **Deployments**: Track build status and history
+- **Logs**: Real-time function logs and errors
+- **Analytics**: Performance metrics and Web Vitals
+- **Speed Insights**: Core Web Vitals monitoring
+
+### Convex Dashboard
+
+Monitor at [dashboard.convex.dev](https://dashboard.convex.dev):
+
+- **Data**: View database tables and documents
+- **Functions**: Query and mutation execution logs
+- **Logs**: Real-time backend logs
+- **Deployments**: Schema change history
+
+### Inngest Dashboard
+
+Monitor at [app.inngest.com](https://app.inngest.com):
+
+- **Functions**: View all registered functions
+- **Runs**: Execution history and status
+- **Errors**: Failed runs with replay capability
+- **Crons**: Scheduled job execution times
+
+### E2B Dashboard
+
+Monitor at [e2b.dev/account](https://e2b.dev/account/):
+
+- **Sandboxes**: Active and paused sandboxes
+- **Usage**: API calls and compute time
+- **Costs**: Real-time cost tracking
+
+<Note>
+  Auto-pause should reduce E2B costs by 30-50% by pausing inactive sandboxes every 5 minutes.
+</Note>
+
+## Troubleshooting
+
+### Deployment Fails
+
+**Issue**: Build fails with TypeScript errors
+
+**Solution**:
+```bash
+# Test build locally first
+bun run build
+
+# Fix any TypeScript errors
+bun run lint
+```
+
+### Inngest Not Syncing
+
+**Issue**: Inngest shows "Failed to sync" error
+
+**Solution**:
+1. Verify `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` are correct
+2. Check Vercel function logs for `/api/inngest` errors
+3. Ensure endpoint is publicly accessible
+4. Re-deploy and try syncing again
+
+### AI Generation Not Working
+
+**Issue**: Code generation fails or hangs
+
+**Solutions**:
+
+1. **Verify E2B Template**:
+   ```bash
+   # Check template exists
+   e2b template list
+   ```
+   
+2. **Check API Keys**:
+   - Verify `E2B_API_KEY` is valid
+   - Test `CEREBRAS_API_KEY` or `OPENROUTER_API_KEY`
+   
+3. **Review Inngest Logs**:
+   - Check for sandbox creation errors
+   - Look for API timeout issues
+
+### Database Connection Issues
+
+**Issue**: Convex queries failing
+
+**Solution**:
+1. Verify `NEXT_PUBLIC_CONVEX_URL` is correct
+2. Check Convex dashboard for deployment status
+3. Ensure JWT template is configured in Clerk
+4. Re-deploy Convex: `bunx convex deploy`
+
+### Webhook Failures
+
+**Issue**: Clerk or Polar webhooks not received
+
+**Solution**:
+1. Check webhook URLs are correct
+2. Verify webhook secrets match environment variables
+3. Review Vercel function logs for webhook endpoints
+4. Test webhook delivery in service dashboard
+
+## Production Checklist
+
+Before launching to production:
+
+- [ ] All environment variables configured in Vercel
+- [ ] Convex backend deployed (`bunx convex deploy`)
+- [ ] E2B template built with production name
+- [ ] Inngest Cloud synced successfully
+- [ ] Clerk webhooks configured with production URL
+- [ ] Polar.sh webhooks configured
+- [ ] Test user registration flow
+- [ ] Test AI code generation end-to-end
+- [ ] Verify cron job execution in logs
+- [ ] Monitor first few Inngest function runs
+- [ ] Check E2B sandbox creation and auto-pause
+- [ ] Configure custom domain (optional)
+- [ ] Enable Vercel Speed Insights
+- [ ] Set up Sentry error tracking (optional)
+
+## Updating Your Deployment
+
+### Code Changes
+
+```bash
+# Push to main branch
+git push origin main
+
+# Vercel auto-deploys from main
+```
+
+### Schema Changes
+
+```bash
+# Deploy Convex schema updates
+bunx convex deploy
+
+# Then deploy to Vercel (auto-triggers on push)
+git push origin main
+```
+
+### Environment Variables
+
+1. Update in Vercel Dashboard → Settings → Environment Variables
+2. Redeploy: Vercel Dashboard → Deployments → Redeploy
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Alternative deployment using Docker containers
+  </Card>
+  <Card title="Self-Hosted" icon="server" href="/deployment/self-hosted">
+    Deploy on your own infrastructure
+  </Card>
+</CardGroup>

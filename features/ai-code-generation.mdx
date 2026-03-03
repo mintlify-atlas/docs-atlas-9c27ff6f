@@ -1,0 +1,434 @@
+---
+title: AI-Powered Code Generation
+description: Build full-stack web applications using conversational AI agents that generate production-ready code in real-time
+---
+
+## Overview
+
+ZapDev uses advanced AI agents to transform natural language descriptions into fully functional web applications. Simply describe what you want to build, and our AI generates production-quality code with proper architecture, type safety, and best practices.
+
+<Info>
+The AI code generation system supports multiple frameworks: **Next.js**, **Angular**, **React**, **Vue**, and **Svelte**. The AI automatically selects the best framework based on your requirements, or you can specify your preference.
+</Info>
+
+## How It Works
+
+ZapDev's code generation follows a sophisticated workflow:
+
+1. **Framework Selection** - AI analyzes your request using the framework selector agent
+2. **Sandbox Creation** - Isolated E2B sandbox environment is provisioned
+3. **Code Generation** - AI writes code using framework-specific prompts and tools
+4. **Validation** - Automatic linting and build checks ensure code quality
+5. **Auto-Fix** - If errors are detected, AI retries with error context
+6. **Real-time Streaming** - Code appears in your editor as it's generated
+
+### Framework Intelligence
+
+The AI uses intelligent heuristics to select the optimal framework:
+
+<Tabs>
+  <Tab title="Next.js (Default)">
+    **When to use**: Full-stack React apps, SEO-focused sites, e-commerce, marketing websites
+    
+    **Pre-installed**:
+    - Shadcn UI (comprehensive component library)
+    - Tailwind CSS v4
+    - TypeScript with strict mode
+    
+    **Port**: 3000
+    
+    **Example prompts**:
+    - "Build a Netflix clone"
+    - "Create an e-commerce site"
+    - "Make a landing page for my SaaS"
+  </Tab>
+  
+  <Tab title="Angular">
+    **When to use**: Enterprise apps, complex forms, Material Design, TypeScript-heavy projects
+    
+    **Pre-installed**:
+    - Angular Material
+    - Tailwind CSS
+    - Standalone components (Angular 19)
+    
+    **Port**: 4200
+    
+    **Example prompts**:
+    - "Create an Angular dashboard"
+    - "Build a Material Design admin panel"
+    - "Make an enterprise CRM"
+  </Tab>
+  
+  <Tab title="React">
+    **When to use**: Simple SPAs, client-side apps, learning projects, lightweight setups
+    
+    **Pre-installed**:
+    - Chakra UI
+    - Vite (fast HMR)
+    - Tailwind CSS
+    
+    **Port**: 5173
+    
+    **Example prompts**:
+    - "Build a simple React todo app"
+    - "Create a React calculator"
+    - "Make a SPA with Vite"
+  </Tab>
+  
+  <Tab title="Vue">
+    **When to use**: Progressive web apps, flexible architecture, Vuetify Material Design
+    
+    **Pre-installed**:
+    - Vuetify 3
+    - Vite
+    - Tailwind CSS
+    
+    **Port**: 5173
+    
+    **Example prompts**:
+    - "Make a Vue 3 calendar"
+    - "Build a PWA with Vuetify"
+    - "Create a Vue dashboard"
+  </Tab>
+  
+  <Tab title="Svelte">
+    **When to use**: High performance needs, minimal bundle size, fast interactive apps
+    
+    **Pre-installed**:
+    - DaisyUI (Tailwind components)
+    - SvelteKit
+    - Tailwind CSS
+    
+    **Port**: 5173
+    
+    **Example prompts**:
+    - "Create a fast Svelte portfolio"
+    - "Build a performant SvelteKit app"
+    - "Make a Svelte widget"
+  </Tab>
+</Tabs>
+
+## AI Agent Architecture
+
+ZapDev uses a multi-agent system for code generation:
+
+### Code Agent
+
+```typescript
+// Source: src/agents/code-agent.ts
+// Main AI generation loop with auto-fix logic
+```
+
+The code agent orchestrates:
+- **Model selection** (OpenRouter via Vercel AI Gateway)
+- **Sandbox lifecycle management** (E2B)
+- **Build validation and auto-fix retries**
+- **Real-time status streaming**
+
+### Framework-Specific Prompts
+
+Each framework has optimized system prompts:
+
+<CodeGroup>
+```typescript Next.js Prompt
+// src/prompts/nextjs.ts
+export const NEXTJS_PROMPT = `
+You are a senior Next.js engineer in a sandboxed environment.
+
+Environment:
+- Framework: Next.js 15.3.3
+- Main file: app/page.tsx
+- Dev port: 3000
+- Styling: Tailwind CSS v4 only
+- UI Components: Shadcn UI from @/components/ui/*
+
+Critical Rules:
+1. Add "use client" to TOP of app/page.tsx
+2. ALL Shadcn components are pre-installed
+3. Import utility: import { cn } from "@/lib/utils"
+4. Build all surfaces with Shadcn primitives
+`;
+```
+
+```typescript Angular Prompt
+// src/prompts/angular.ts
+export const ANGULAR_PROMPT = `
+You are a senior software engineer working in Angular 19.
+
+Environment:
+- Main component: src/app/app.component.ts
+- Angular Material is pre-installed
+- Development server runs on port 4200
+- Standalone components are the default
+
+Rules:
+- Use standalone components (standalone: true)
+- Import CommonModule for *ngIf, *ngFor
+- Use signals for reactive state management
+`;
+```
+
+```typescript React Prompt
+// src/prompts/react.ts
+export const REACT_PROMPT = `
+You are a senior software engineer in React 18 + Vite.
+
+Environment:
+- Main file: src/App.tsx
+- Chakra UI is pre-installed
+- Development server runs on port 5173
+
+Rules:
+- Use functional components with hooks
+- Use Chakra UI components from '@chakra-ui/react'
+`;
+```
+</CodeGroup>
+
+## Agent Tools
+
+AI agents have access to powerful tools for code generation:
+
+### File Operations
+
+<Accordion title="createOrUpdateFiles">
+  Batch file creation/updates in the sandbox. Uses Python optimization to avoid O(N) API latency.
+  
+  **Example usage**:
+  ```typescript
+  createOrUpdateFiles({
+    "app/page.tsx": "...",
+    "components/hero.tsx": "...",
+    "lib/utils.ts": "..."
+  })
+  ```
+</Accordion>
+
+<Accordion title="readFiles">
+  Read multiple files in parallel to inspect existing code.
+  
+  **Example usage**:
+  ```typescript
+  readFiles([
+    "/home/user/components/ui/button.tsx",
+    "/home/user/app/page.tsx"
+  ])
+  ```
+</Accordion>
+
+### Terminal Access
+
+<Accordion title="terminal">
+  Execute commands in the E2B sandbox for package installation, building, and linting.
+  
+  **Example usage**:
+  ```bash
+  npm install framer-motion --yes
+  npm run build
+  npm run lint
+  ```
+</Accordion>
+
+## Code Quality & Validation
+
+Every AI-generated application goes through automatic quality checks:
+
+<Note>
+**Mandatory Validation**: Before completing any task, the AI MUST run `npm run build` and fix ALL errors. No code is delivered with build failures.
+</Note>
+
+### Auto-Fix Workflow
+
+1. **Initial Generation** - AI writes code based on your prompt
+2. **Build Check** - `npm run build` runs automatically
+3. **Error Detection** - TypeScript, ESLint, and framework errors are captured
+4. **Auto-Fix Retry** - AI receives error context and regenerates code
+5. **Validation Loop** - Process repeats up to 2 times if needed
+6. **Success** - Clean build required before completion
+
+### Security Best Practices
+
+All AI-generated code follows security guidelines:
+
+```typescript
+// From src/prompts/shared.ts
+Security Best Practices (MANDATORY):
+1. Input Validation & Sanitization:
+   - ALWAYS validate and sanitize ALL user inputs
+   - Use proper validation libraries (zod, yup, etc.)
+   - Escape HTML content to prevent XSS attacks
+
+2. Authentication & Authorization:
+   - Implement proper authentication checks
+   - Use secure session management
+   - Never expose sensitive credentials in code
+
+3. Data Protection:
+   - Never log sensitive information
+   - Use HTTPS for all external requests
+   - Implement rate limiting for API endpoints
+```
+
+## Streaming & Real-Time Updates
+
+Code generation streams events to your interface in real-time:
+
+<CodeGroup>
+```typescript Stream Events
+// src/agents/code-agent.ts
+export interface StreamEvent {
+  type:
+    | "status"          // AI thinking/planning
+    | "text"            // AI explanation
+    | "tool-call"       // Tool being executed
+    | "tool-output"     // Tool results
+    | "file-created"    // New file generated
+    | "file-updated"    // File modified
+    | "progress"        // Build/validation progress
+    | "error"           // Error occurred
+    | "complete";       // Generation finished
+  data: unknown;
+  timestamp?: number;
+}
+```
+
+```typescript File Created Event
+{
+  type: "file-created",
+  data: {
+    path: "app/page.tsx",
+    content: "...",
+    size: 1024
+  }
+}
+```
+
+```typescript Tool Call Event
+{
+  type: "tool-call",
+  data: {
+    tool: "terminal",
+    args: { command: "npm install" }
+  }
+}
+```
+</CodeGroup>
+
+## Usage & Rate Limits
+
+Code generation operates within credit limits:
+
+| Plan | Daily Limit | Features |
+|------|-------------|----------|
+| **Free** | 5 generations | All frameworks, Auto-fix, Streaming |
+| **Pro** | 100 generations | Priority processing, Higher timeout |
+
+<Info>
+Credits are tracked in a 24-hour rolling window. Each code generation request consumes 1 credit regardless of complexity.
+</Info>
+
+## Advanced Features
+
+### Conversational Refinement
+
+After initial generation, you can refine your application through conversation:
+
+```
+You: "Add user authentication"
+AI: *Integrates Better Auth with Drizzle ORM*
+
+You: "Make it mobile responsive"
+AI: *Adds Tailwind responsive classes*
+
+You: "Add dark mode"
+AI: *Implements theme switching*
+```
+
+### Component Reuse
+
+The AI leverages pre-installed component libraries:
+
+- **Next.js**: Automatically uses Shadcn UI components
+- **Angular**: Integrates Angular Material
+- **React**: Uses Chakra UI primitives
+- **Vue**: Leverages Vuetify components
+- **Svelte**: Applies DaisyUI classes
+
+### Database Integration
+
+When you request database features:
+
+```
+You: "Add a blog with database"
+AI: *Implements Drizzle ORM + PostgreSQL*
+```
+
+Default stack:
+- **ORM**: Drizzle ORM
+- **Database**: PostgreSQL (Prisma Console hosted)
+- **Auth**: Better Auth (when authentication requested)
+- **Migrations**: Drizzle migrations
+
+## Best Practices
+
+<Accordion title="Write Clear, Descriptive Prompts">
+  The more specific your request, the better the results:
+  
+  ❌ **Vague**: "Build an app"
+  
+  ✅ **Clear**: "Build a todo app with Next.js, user authentication, and dark mode"
+</Accordion>
+
+<Accordion title="Specify Framework When Needed">
+  Explicitly mention the framework if you have a preference:
+  
+  - "Create an **Angular** dashboard with Material Design"
+  - "Build a **Svelte** portfolio for performance"
+  - "Make a **Vue** calendar with Vuetify"
+</Accordion>
+
+<Accordion title="Request Full Features, Not Placeholders">
+  The AI generates production-ready code, not demos:
+  
+  ❌ **Placeholder**: "Add a login form"
+  
+  ✅ **Complete**: "Add login form with email validation, password strength indicator, and error handling"
+</Accordion>
+
+<Accordion title="Iterate Through Conversation">
+  Use follow-up messages to refine and enhance:
+  
+  1. Initial: "Build a blog"
+  2. Refine: "Add pagination"
+  3. Enhance: "Add search functionality"
+  4. Polish: "Make it mobile-first responsive"
+</Accordion>
+
+## Limitations
+
+While powerful, the AI has some constraints:
+
+- **No external API calls** - Uses static/local data only
+- **No image URLs** - Uses emojis and colored placeholders
+- **Dev servers don't run** - Code is validated via builds, not runtime
+- **Sandbox isolation** - No access to your local filesystem
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Real-Time Sandboxes" icon="box" href="/features/real-time-sandboxes">
+    Learn how E2B provides isolated execution environments
+  </Card>
+  
+  <Card title="Live Preview" icon="eye" href="/features/live-preview">
+    Explore the split-pane interface with real-time updates
+  </Card>
+  
+  <Card title="File Explorer" icon="folder" href="/features/file-explorer">
+    Browse generated code with syntax highlighting
+  </Card>
+  
+  <Card title="Multi-Framework Support" icon="layer-group" href="/features/multi-framework-support">
+    Deep dive into all supported frameworks
+  </Card>
+</CardGroup>

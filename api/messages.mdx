@@ -1,0 +1,847 @@
+---
+title: Messages API
+description: API reference for managing messages, fragments, and attachments in ZapDev
+---
+
+The Messages API handles all message-related operations including creating messages, managing fragments (generated code), and handling attachments.
+
+## Data Model
+
+### Message
+
+<ResponseField name="_id" type="Id<'messages'>" required>
+  Unique identifier for the message
+</ResponseField>
+
+<ResponseField name="content" type="string" required>
+  The text content of the message
+</ResponseField>
+
+<ResponseField name="role" type="MessageRole" required>
+  Who sent the message: `USER` or `ASSISTANT`
+</ResponseField>
+
+<ResponseField name="type" type="MessageType" required>
+  Message type: `RESULT`, `ERROR`, or `STREAMING`
+</ResponseField>
+
+<ResponseField name="status" type="MessageStatus" required>
+  Message status: `PENDING`, `STREAMING`, or `COMPLETE`
+</ResponseField>
+
+<ResponseField name="projectId" type="Id<'projects'>" required>
+  The project this message belongs to
+</ResponseField>
+
+<ResponseField name="createdAt" type="number">
+  Timestamp when the message was created (milliseconds)
+</ResponseField>
+
+<ResponseField name="updatedAt" type="number">
+  Timestamp when the message was last updated (milliseconds)
+</ResponseField>
+
+### Fragment
+
+<ResponseField name="_id" type="Id<'fragments'>" required>
+  Unique identifier for the fragment
+</ResponseField>
+
+<ResponseField name="messageId" type="Id<'messages'>" required>
+  The message this fragment belongs to
+</ResponseField>
+
+<ResponseField name="sandboxUrl" type="string" required>
+  E2B sandbox URL where the code runs
+</ResponseField>
+
+<ResponseField name="title" type="string" required>
+  Display title for the fragment
+</ResponseField>
+
+<ResponseField name="files" type="object" required>
+  File structure with paths as keys and content as values
+</ResponseField>
+
+<ResponseField name="metadata" type="object">
+  Additional metadata about the fragment (optional)
+</ResponseField>
+
+<ResponseField name="framework" type="Framework" required>
+  Framework used: `NEXTJS`, `ANGULAR`, `REACT`, `VUE`, or `SVELTE`
+</ResponseField>
+
+### Attachment
+
+<ResponseField name="_id" type="Id<'attachments'>" required>
+  Unique identifier for the attachment
+</ResponseField>
+
+<ResponseField name="messageId" type="Id<'messages'>" required>
+  The message this attachment belongs to
+</ResponseField>
+
+<ResponseField name="type" type="AttachmentType" required>
+  Attachment type: `IMAGE`, `FIGMA_FILE`, or `GITHUB_REPO`
+</ResponseField>
+
+<ResponseField name="url" type="string" required>
+  URL of the attachment
+</ResponseField>
+
+<ResponseField name="size" type="number" required>
+  File size in bytes
+</ResponseField>
+
+<ResponseField name="width" type="number">
+  Image width in pixels (optional)
+</ResponseField>
+
+<ResponseField name="height" type="number">
+  Image height in pixels (optional)
+</ResponseField>
+
+<ResponseField name="importId" type="Id<'imports'>">
+  Related import ID if from Figma/GitHub (optional)
+</ResponseField>
+
+<ResponseField name="sourceMetadata" type="object">
+  Metadata from the import source (optional)
+</ResponseField>
+
+## Queries
+
+### list
+
+Get all messages for a project with fragments and attachments.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+const messages = useQuery(api.messages.list, {
+  projectId: "jh7...",
+});
+```
+
+<ParamField path="projectId" type="Id<'projects'>" required>
+  The project ID to get messages for
+</ParamField>
+
+**Returns:** Array of messages sorted by creation date (ascending)
+
+<ResponseField name="Fragment" type="object | null">
+  The fragment associated with this message (if any)
+</ResponseField>
+
+<ResponseField name="Attachment" type="array">
+  All attachments for this message
+</ResponseField>
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Unauthorized"`
+
+---
+
+### get
+
+Get a single message by ID.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+const message = useQuery(api.messages.get, {
+  messageId: "jg6...",
+});
+```
+
+<ParamField path="messageId" type="Id<'messages'>" required>
+  The message ID to retrieve
+</ParamField>
+
+**Returns:** Message object
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Message not found"` or `"Unauthorized"`
+
+---
+
+### getFragment
+
+Get the fragment for a message.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+const fragment = useQuery(api.messages.getFragment, {
+  messageId: "jg6...",
+});
+```
+
+<ParamField path="messageId" type="Id<'messages'>" required>
+  The message ID to get the fragment for
+</ParamField>
+
+**Returns:** Fragment object or `null` if no fragment exists
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Message not found"` or `"Unauthorized"`
+
+---
+
+### getFragmentById
+
+Get a fragment by its ID (public API access).
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+const fragment = useQuery(api.messages.getFragmentById, {
+  fragmentId: "jd8...",
+});
+```
+
+<ParamField path="fragmentId" type="Id<'fragments'>" required>
+  The fragment ID to retrieve
+</ParamField>
+
+**Returns:** Fragment object
+
+**Authentication:** Public (no authentication required)
+
+**Throws:** `"Fragment not found"`
+
+---
+
+### getFragmentByIdAuth
+
+Get a fragment by ID with authorization check.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+const result = useQuery(api.messages.getFragmentByIdAuth, {
+  fragmentId: "jd8...",
+});
+```
+
+<ParamField path="fragmentId" type="Id<'fragments'>" required>
+  The fragment ID to retrieve
+</ParamField>
+
+**Returns:** Object containing:
+
+<ResponseField name="fragment" type="object" required>
+  The fragment object
+</ResponseField>
+
+<ResponseField name="message" type="object" required>
+  The associated message object
+</ResponseField>
+
+<ResponseField name="project" type="object" required>
+  The associated project object
+</ResponseField>
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Fragment not found"`, `"Message not found"`, or `"Unauthorized"`
+
+---
+
+### getAttachments
+
+Get all attachments for a message.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+const attachments = useQuery(api.messages.getAttachments, {
+  messageId: "jg6...",
+});
+```
+
+<ParamField path="messageId" type="Id<'messages'>" required>
+  The message ID to get attachments for
+</ParamField>
+
+**Returns:** Array of attachment objects
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Message not found"` or `"Unauthorized"`
+
+---
+
+### listForUser
+
+List messages for a specific user (for background jobs/Inngest).
+
+```typescript
+import { api } from '@/convex/_generated/api';
+
+const messages = await ctx.runQuery(api.messages.listForUser, {
+  userId: "user_...",
+  projectId: "jh7...",
+});
+```
+
+<ParamField path="userId" type="string" required>
+  The Clerk user ID
+</ParamField>
+
+<ParamField path="projectId" type="Id<'projects'>" required>
+  The project ID
+</ParamField>
+
+**Returns:** Array of messages with `fragment` and `attachments` fields
+
+**Throws:** `"Unauthorized"`
+
+## Mutations
+
+### create
+
+Create a new message.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
+
+const createMessage = useMutation(api.messages.create);
+
+const messageId = await createMessage({
+  projectId: "jh7...",
+  content: "Make the button blue",
+  role: "USER",
+  type: "RESULT",
+  status: "COMPLETE",
+});
+```
+
+<ParamField path="projectId" type="Id<'projects'>" required>
+  The project ID
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  The message content
+</ParamField>
+
+<ParamField path="role" type="MessageRole" required>
+  Message role: `USER` or `ASSISTANT`
+</ParamField>
+
+<ParamField path="type" type="MessageType" required>
+  Message type: `RESULT`, `ERROR`, or `STREAMING`
+</ParamField>
+
+<ParamField path="status" type="MessageStatus">
+  Message status (defaults to `COMPLETE`)
+</ParamField>
+
+**Returns:** `Id<"messages">` - The newly created message ID
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Unauthorized"`
+
+---
+
+### updateStatus
+
+Update a message's status.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
+
+const updateStatus = useMutation(api.messages.updateStatus);
+
+const messageId = await updateStatus({
+  messageId: "jg6...",
+  status: "COMPLETE",
+});
+```
+
+<ParamField path="messageId" type="Id<'messages'>" required>
+  The message ID to update
+</ParamField>
+
+<ParamField path="status" type="MessageStatus" required>
+  New status: `PENDING`, `STREAMING`, or `COMPLETE`
+</ParamField>
+
+**Returns:** `Id<"messages">` - The updated message ID
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Message not found"` or `"Unauthorized"`
+
+---
+
+### updateMessage
+
+Update a message's content and optionally its status.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
+
+const updateMessage = useMutation(api.messages.updateMessage);
+
+const message = await updateMessage({
+  messageId: "jg6...",
+  content: "Updated content",
+  status: "COMPLETE",
+});
+```
+
+<ParamField path="messageId" type="Id<'messages'>" required>
+  The message ID to update
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  New message content
+</ParamField>
+
+<ParamField path="status" type="MessageStatus">
+  New status (optional)
+</ParamField>
+
+**Returns:** Updated message object
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Message not found"` or `"Unauthorized"`
+
+---
+
+### createFragment
+
+Create or update a fragment for a message.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
+
+const createFragment = useMutation(api.messages.createFragment);
+
+const fragmentId = await createFragment({
+  messageId: "jg6...",
+  sandboxUrl: "https://...",
+  title: "Todo App",
+  files: {
+    "app/page.tsx": "export default...",
+    "app/layout.tsx": "export default...",
+  },
+  framework: "NEXTJS",
+  metadata: { buildTime: 1234 },
+});
+```
+
+<ParamField path="messageId" type="Id<'messages'>" required>
+  The message ID
+</ParamField>
+
+<ParamField path="sandboxUrl" type="string" required>
+  E2B sandbox URL
+</ParamField>
+
+<ParamField path="title" type="string" required>
+  Display title for the fragment
+</ParamField>
+
+<ParamField path="files" type="object" required>
+  File structure (paths as keys, content as values)
+</ParamField>
+
+<ParamField path="framework" type="Framework" required>
+  Framework: `NEXTJS`, `ANGULAR`, `REACT`, `VUE`, or `SVELTE`
+</ParamField>
+
+<ParamField path="metadata" type="object">
+  Additional metadata (optional)
+</ParamField>
+
+**Returns:** `Id<"fragments">` - The fragment ID (creates new or updates existing)
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Message not found"` or `"Unauthorized"`
+
+---
+
+### addAttachment
+
+Add an attachment to a message.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
+
+const addAttachment = useMutation(api.messages.addAttachment);
+
+const attachmentId = await addAttachment({
+  messageId: "jg6...",
+  type: "IMAGE",
+  url: "https://...",
+  size: 123456,
+  width: 1920,
+  height: 1080,
+});
+```
+
+<ParamField path="messageId" type="Id<'messages'>" required>
+  The message ID
+</ParamField>
+
+<ParamField path="type" type="AttachmentType" required>
+  Attachment type: `IMAGE`, `FIGMA_FILE`, or `GITHUB_REPO`
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  URL of the attachment
+</ParamField>
+
+<ParamField path="size" type="number" required>
+  File size in bytes
+</ParamField>
+
+<ParamField path="width" type="number">
+  Image width in pixels (optional)
+</ParamField>
+
+<ParamField path="height" type="number">
+  Image height in pixels (optional)
+</ParamField>
+
+<ParamField path="importId" type="Id<'imports'>">
+  Related import ID (optional)
+</ParamField>
+
+<ParamField path="sourceMetadata" type="object">
+  Source metadata (optional)
+</ParamField>
+
+**Returns:** `Id<"attachments">` - The newly created attachment ID
+
+**Authentication:** Required. User must own the project.
+
+**Throws:** `"Message not found"` or `"Unauthorized"`
+
+---
+
+### createForUser
+
+Create a message with an explicit user ID (for use from actions).
+
+```typescript
+import { api } from '@/convex/_generated/api';
+
+const messageId = await ctx.runMutation(api.messages.createForUser, {
+  userId: "user_...",
+  projectId: "jh7...",
+  content: "Create a button",
+  role: "USER",
+  type: "RESULT",
+  status: "COMPLETE",
+});
+```
+
+<ParamField path="userId" type="string" required>
+  The Clerk user ID
+</ParamField>
+
+<ParamField path="projectId" type="Id<'projects'>" required>
+  The project ID
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  Message content
+</ParamField>
+
+<ParamField path="role" type="MessageRole" required>
+  Message role
+</ParamField>
+
+<ParamField path="type" type="MessageType" required>
+  Message type
+</ParamField>
+
+<ParamField path="status" type="MessageStatus">
+  Message status (optional, defaults to `COMPLETE`)
+</ParamField>
+
+**Returns:** `Id<"messages">` - The newly created message ID
+
+**Throws:** `"Unauthorized"`
+
+---
+
+### createFragmentForUser
+
+Create a fragment for a specific user (for use from background jobs/Inngest).
+
+```typescript
+import { api } from '@/convex/_generated/api';
+
+const fragmentId = await ctx.runMutation(api.messages.createFragmentForUser, {
+  userId: "user_...",
+  messageId: "jg6...",
+  sandboxUrl: "https://...",
+  title: "Todo App",
+  files: { "app/page.tsx": "..." },
+  framework: "NEXTJS",
+});
+```
+
+<ParamField path="userId" type="string" required>
+  The Clerk user ID
+</ParamField>
+
+<ParamField path="messageId" type="Id<'messages'>" required>
+  The message ID
+</ParamField>
+
+<ParamField path="sandboxUrl" type="string" required>
+  E2B sandbox URL
+</ParamField>
+
+<ParamField path="title" type="string" required>
+  Display title
+</ParamField>
+
+<ParamField path="files" type="object" required>
+  File structure
+</ParamField>
+
+<ParamField path="framework" type="Framework" required>
+  Framework
+</ParamField>
+
+<ParamField path="metadata" type="object">
+  Additional metadata (optional)
+</ParamField>
+
+**Returns:** `Id<"fragments">` - The fragment ID
+
+**Throws:** `"Message not found"` or `"Unauthorized"`
+
+## Actions
+
+### createWithAttachments
+
+Create a message with attachments (for message form flow).
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useAction } from 'convex/react';
+
+const createMessage = useAction(api.messages.createWithAttachments);
+
+const result = await createMessage({
+  value: "Update the UI based on this design",
+  projectId: "jh7...",
+  attachments: [
+    {
+      url: "https://...",
+      size: 123456,
+      width: 1920,
+      height: 1080,
+    },
+  ],
+});
+```
+
+<ParamField path="value" type="string" required>
+  The message content
+</ParamField>
+
+<ParamField path="projectId" type="string" required>
+  The project ID (as string)
+</ParamField>
+
+<ParamField path="attachments" type="array">
+  Optional array of attachment objects
+</ParamField>
+
+<ParamField path="attachments[].url" type="string" required>
+  Attachment URL
+</ParamField>
+
+<ParamField path="attachments[].size" type="number" required>
+  File size in bytes
+</ParamField>
+
+<ParamField path="attachments[].width" type="number">
+  Image width (optional)
+</ParamField>
+
+<ParamField path="attachments[].height" type="number">
+  Image height (optional)
+</ParamField>
+
+<ParamField path="attachments[].type" type="AttachmentType">
+  Attachment type (optional, defaults to `IMAGE`)
+</ParamField>
+
+<ParamField path="attachments[].importId" type="Id<'imports'>">
+  Import ID (optional)
+</ParamField>
+
+<ParamField path="attachments[].sourceMetadata" type="object">
+  Source metadata (optional)
+</ParamField>
+
+**Returns:** Object containing:
+
+<ResponseField name="messageId" type="Id<'messages'>">
+  The newly created message ID
+</ResponseField>
+
+<ResponseField name="projectId" type="Id<'projects'>">
+  The project ID
+</ResponseField>
+
+<ResponseField name="value" type="string">
+  The message content
+</ResponseField>
+
+**Authentication:** Required
+
+**Throws:** `"You have run out of credits"`
+
+**Note:** This action automatically checks and consumes 1 credit before creating the message.
+
+## Database Schema
+
+The `messages` table has the following indexes:
+
+```typescript
+// convex/schema.ts
+messages: defineTable({
+  content: v.string(),
+  role: messageRoleEnum,
+  type: messageTypeEnum,
+  status: messageStatusEnum,
+  projectId: v.id("projects"),
+  createdAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+})
+  .index("by_projectId", ["projectId"])
+  .index("by_projectId_createdAt", ["projectId", "createdAt"])
+```
+
+The `fragments` table:
+
+```typescript
+fragments: defineTable({
+  messageId: v.id("messages"),
+  sandboxUrl: v.string(),
+  title: v.string(),
+  files: v.any(),
+  metadata: v.optional(v.any()),
+  framework: frameworkEnum,
+  createdAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+})
+  .index("by_messageId", ["messageId"])
+```
+
+The `attachments` table:
+
+```typescript
+attachments: defineTable({
+  type: attachmentTypeEnum,
+  url: v.string(),
+  width: v.optional(v.number()),
+  height: v.optional(v.number()),
+  size: v.number(),
+  messageId: v.id("messages"),
+  importId: v.optional(v.id("imports")),
+  sourceMetadata: v.optional(v.any()),
+  createdAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+})
+  .index("by_messageId", ["messageId"])
+```
+
+## Example Usage
+
+### Creating a message in a project
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useAction } from 'convex/react';
+import { useState } from 'react';
+
+function MessageForm({ projectId }: { projectId: string }) {
+  const [input, setInput] = useState('');
+  const createMessage = useAction(api.messages.createWithAttachments);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const result = await createMessage({
+        value: input,
+        projectId,
+      });
+      console.log('Created message:', result.messageId);
+      setInput('');
+    } catch (error) {
+      console.error('Failed to create message:', error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Describe changes..."
+      />
+      <button type="submit">Send</button>
+    </form>
+  );
+}
+```
+
+### Displaying messages with fragments
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+function MessageList({ projectId }: { projectId: string }) {
+  const messages = useQuery(api.messages.list, { projectId });
+
+  if (!messages) return <div>Loading...</div>;
+
+  return (
+    <div>
+      {messages.map((message) => (
+        <div key={message._id}>
+          <p>{message.content}</p>
+          {message.Fragment && (
+            <div>
+              <h4>{message.Fragment.title}</h4>
+              <iframe src={message.Fragment.sandboxUrl} />
+            </div>
+          )}
+          {message.Attachment.map((att) => (
+            <img key={att._id} src={att.url} alt="Attachment" />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```

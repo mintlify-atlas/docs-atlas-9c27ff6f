@@ -1,0 +1,505 @@
+---
+title: "React 18 with Chakra UI"
+description: "Build lightweight single-page applications with React 18, Chakra UI, and Vite"
+---
+
+React 18 with Vite provides a fast, lightweight development experience for building modern single-page applications.
+
+## Overview
+
+React 18 is perfect for simple client-side applications, learning projects, and SPAs that don't require server-side rendering.
+
+### Pre-installed Packages
+
+- **React 18**: Latest React library with concurrent features
+- **Vite**: Next-generation frontend tooling with fast HMR
+- **Chakra UI**: Accessible component library with built-in theming
+- **Tailwind CSS**: Utility-first CSS framework
+- **TypeScript**: Full type safety
+- **Lucide React**: Icon library
+
+### Key Features
+
+- Fast HMR (Hot Module Replacement) with Vite
+- Concurrent rendering features
+- Automatic batching
+- Suspense support
+- Chakra UI's accessible components
+- Built-in dark mode support
+
+## Use Cases
+
+React 18 is best suited for:
+
+<CardGroup cols={2}>
+  <Card title="Simple SPAs" icon="window">
+    Client-side single-page applications without SSR requirements
+  </Card>
+  
+  <Card title="Learning Projects" icon="graduation-cap">
+    Educational projects and React practice applications
+  </Card>
+  
+  <Card title="Prototypes" icon="sparkles">
+    Quick prototypes and proof-of-concept applications
+  </Card>
+  
+  <Card title="Interactive Tools" icon="wrench">
+    Calculators, converters, and client-side utilities
+  </Card>
+</CardGroup>
+
+## Chakra UI Components
+
+Chakra UI provides accessible, composable components with built-in styling props and theming support.
+
+### Available Components
+
+- **Layout**: Box, Container, Flex, Grid, Stack, Wrap
+- **Forms**: Button, Input, Select, Checkbox, Radio, Switch, Textarea
+- **Data Display**: Badge, Card, Code, Divider, Kbd, List, Stat, Table, Tag
+- **Feedback**: Alert, Progress, Skeleton, Spinner, Toast
+- **Navigation**: Breadcrumb, Link, Menu, Tabs
+- **Overlay**: Drawer, Modal, Popover, Tooltip
+
+### Component Usage
+
+<Tabs>
+  <Tab title="Button">
+    ```tsx
+    import { Button, Stack } from '@chakra-ui/react';
+
+    export const App = () => {
+      return (
+        <Stack spacing={4} direction='row'>
+          <Button colorScheme='blue'>Primary</Button>
+          <Button colorScheme='red'>Danger</Button>
+          <Button variant='outline'>Outline</Button>
+          <Button variant='ghost'>Ghost</Button>
+          <Button isLoading>Loading</Button>
+        </Stack>
+      );
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Card">
+    ```tsx
+    import { Card, CardHeader, CardBody, CardFooter, Heading, Text, Button } from '@chakra-ui/react';
+
+    export const App = () => {
+      return (
+        <Card>
+          <CardHeader>
+            <Heading size='md'>Card Title</Heading>
+          </CardHeader>
+          <CardBody>
+            <Text>Card content goes here with your custom components</Text>
+          </CardBody>
+          <CardFooter>
+            <Button>View here</Button>
+          </CardFooter>
+        </Card>
+      );
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Form">
+    ```tsx
+    import { useState } from 'react';
+    import {
+      FormControl,
+      FormLabel,
+      FormErrorMessage,
+      Input,
+      Button,
+      VStack
+    } from '@chakra-ui/react';
+
+    export const App = () => {
+      const [email, setEmail] = useState('');
+      const [error, setError] = useState('');
+
+      const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email.includes('@')) {
+          setError('Invalid email');
+          return;
+        }
+        console.log('Submit:', email);
+      };
+
+      return (
+        <form onSubmit={handleSubmit}>
+          <VStack spacing={4} align='stretch'>
+            <FormControl isInvalid={!!error}>
+              <FormLabel>Email</FormLabel>
+              <Input
+                type='email'
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError('');
+                }}
+              />
+              <FormErrorMessage>{error}</FormErrorMessage>
+            </FormControl>
+            <Button type='submit' colorScheme='blue'>
+              Submit
+            </Button>
+          </VStack>
+        </form>
+      );
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Modal">
+    ```tsx
+    import {
+      Modal,
+      ModalOverlay,
+      ModalContent,
+      ModalHeader,
+      ModalFooter,
+      ModalBody,
+      ModalCloseButton,
+      Button,
+      useDisclosure
+    } from '@chakra-ui/react';
+
+    export const App = () => {
+      const { isOpen, onOpen, onClose } = useDisclosure();
+
+      return (
+        <>
+          <Button onClick={onOpen}>Open Modal</Button>
+
+          <Modal isOpen={isOpen} onClose={onClose}>
+            <ModalOverlay />
+            <ModalContent>
+              <ModalHeader>Modal Title</ModalHeader>
+              <ModalCloseButton />
+              <ModalBody>
+                Modal content goes here
+              </ModalBody>
+              <ModalFooter>
+                <Button colorScheme='blue' mr={3} onClick={onClose}>
+                  Close
+                </Button>
+                <Button variant='ghost'>Action</Button>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
+        </>
+      );
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## Critical Rules
+
+<Info>
+  **Main File**: The entry point is `src/App.tsx`. Do not modify `src/main.tsx`.
+</Info>
+
+<Warning>
+  **Pre-installed**: Chakra UI is already installed. Do not run installation commands for Chakra UI or Tailwind CSS.
+</Warning>
+
+### File Conventions
+
+- **Main file**: `src/App.tsx`
+- **Entry point**: `src/main.tsx` (do not modify)
+- **Component files**: `ComponentName.tsx` (PascalCase)
+- **Hook files**: `useHookName.ts` (camelCase with 'use' prefix)
+- **Components directory**: `src/components/`
+- **Hooks directory**: `src/hooks/`
+- **Utils directory**: `src/utils/`
+- **Types directory**: `src/types/`
+
+### Component Structure
+
+```tsx
+import React from 'react';
+
+interface ComponentNameProps {
+  title: string;
+  onAction?: () => void;
+}
+
+export const ComponentName: React.FC<ComponentNameProps> = ({ title, onAction }) => {
+  // Component logic
+  
+  return (
+    <div>
+      {/* JSX */}
+    </div>
+  );
+};
+```
+
+### Project Structure
+
+```plaintext
+src/
+├── App.tsx               # Main application component
+├── main.tsx              # Entry point (do not modify)
+├── components/           # React components
+├── hooks/                # Custom hooks
+├── utils/                # Utility functions
+└── types/                # TypeScript type definitions
+```
+
+## Chakra UI Styling Props
+
+Chakra UI components accept styling props for quick customization:
+
+<Tabs>
+  <Tab title="Layout Props">
+    ```tsx
+    import { Box, Flex } from '@chakra-ui/react';
+
+    export const App = () => {
+      return (
+        <Box
+          p={4}              // padding
+          m={2}              // margin
+          bg='blue.500'      // background
+          color='white'      // text color
+          borderRadius='md'  // border radius
+          boxShadow='lg'     // box shadow
+        >
+          <Flex
+            direction='column'
+            align='center'
+            justify='space-between'
+            gap={4}
+          >
+            Content here
+          </Flex>
+        </Box>
+      );
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Responsive Props">
+    ```tsx
+    import { Box, Text } from '@chakra-ui/react';
+
+    export const App = () => {
+      return (
+        <Box
+          w={{ base: '100%', md: '50%', lg: '33%' }}
+          p={{ base: 2, md: 4, lg: 6 }}
+        >
+          <Text
+            fontSize={{ base: 'sm', md: 'md', lg: 'lg' }}
+          >
+            Responsive text
+          </Text>
+        </Box>
+      );
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Color Mode">
+    ```tsx
+    import { Box, Button, useColorMode } from '@chakra-ui/react';
+
+    export const App = () => {
+      const { colorMode, toggleColorMode } = useColorMode();
+
+      return (
+        <Box bg={colorMode === 'light' ? 'white' : 'gray.800'}>
+          <Button onClick={toggleColorMode}>
+            Toggle {colorMode === 'light' ? 'Dark' : 'Light'}
+          </Button>
+        </Box>
+      );
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## React Hooks
+
+<Tabs>
+  <Tab title="useState">
+    ```tsx
+    import { useState } from 'react';
+    import { Button, Text, VStack } from '@chakra-ui/react';
+
+    export const App = () => {
+      const [count, setCount] = useState(0);
+
+      return (
+        <VStack>
+          <Text>Count: {count}</Text>
+          <Button onClick={() => setCount(count + 1)}>
+            Increment
+          </Button>
+        </VStack>
+      );
+    };
+    ```
+  </Tab>
+  
+  <Tab title="useEffect">
+    ```tsx
+    import { useState, useEffect } from 'react';
+    import { Text } from '@chakra-ui/react';
+
+    export const App = () => {
+      const [data, setData] = useState(null);
+
+      useEffect(() => {
+        // Fetch data on mount
+        fetch('https://api.example.com/data')
+          .then(res => res.json())
+          .then(setData);
+      }, []);
+
+      return <Text>{data ? JSON.stringify(data) : 'Loading...'}</Text>;
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Custom Hook">
+    ```tsx
+    // src/hooks/useLocalStorage.ts
+    import { useState, useEffect } from 'react';
+
+    export function useLocalStorage<T>(key: string, initialValue: T) {
+      const [value, setValue] = useState<T>(() => {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : initialValue;
+      });
+
+      useEffect(() => {
+        localStorage.setItem(key, JSON.stringify(value));
+      }, [key, value]);
+
+      return [value, setValue] as const;
+    }
+
+    // Usage in component
+    import { useLocalStorage } from './hooks/useLocalStorage';
+
+    export const App = () => {
+      const [name, setName] = useLocalStorage('name', '');
+      // ...
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## Styling with Tailwind
+
+Combine Chakra UI with Tailwind utilities:
+
+```tsx
+import { Card, CardHeader, CardBody } from '@chakra-ui/react';
+
+export const App = () => {
+  return (
+    <Card className='max-w-md mx-auto mt-8'>
+      <CardHeader className='bg-gradient-to-r from-blue-500 to-purple-600'>
+        <h2 className='text-white text-xl font-bold'>Gradient Header</h2>
+      </CardHeader>
+      <CardBody className='p-6'>
+        <p className='text-gray-700'>Custom styled card</p>
+      </CardBody>
+    </Card>
+  );
+};
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use functional components with hooks">
+    ```tsx
+    // Prefer this
+    export const Component: React.FC = () => {
+      const [state, setState] = useState();
+      return <div />;
+    };
+    
+    // Avoid class components
+    ```
+  </Accordion>
+  
+  <Accordion title="Extract custom hooks for reusable logic">
+    ```tsx
+    // src/hooks/useFetch.ts
+    export function useFetch(url: string) {
+      const [data, setData] = useState(null);
+      const [loading, setLoading] = useState(true);
+      
+      useEffect(() => {
+        fetch(url).then(r => r.json()).then(setData).finally(() => setLoading(false));
+      }, [url]);
+      
+      return { data, loading };
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use proper key props for lists">
+    ```tsx
+    {items.map((item) => (
+      <div key={item.id}>{item.name}</div>
+    ))}
+    ```
+  </Accordion>
+  
+  <Accordion title="Implement error boundaries">
+    ```tsx
+    import { Component, ErrorInfo, ReactNode } from 'react';
+    
+    class ErrorBoundary extends Component<{children: ReactNode}> {
+      componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+        console.error(error, errorInfo);
+      }
+      
+      render() {
+        return this.props.children;
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Chakra's useToast for notifications">
+    ```tsx
+    import { useToast, Button } from '@chakra-ui/react';
+    
+    export const App = () => {
+      const toast = useToast();
+      
+      return (
+        <Button onClick={() => toast({
+          title: 'Success',
+          status: 'success',
+          duration: 3000,
+        })}>
+          Show Toast
+        </Button>
+      );
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" href="/quickstart" />
+  <Card title="Framework Overview" href="/frameworks/overview" />
+  <Card title="Examples" href="/guides/creating-projects" />
+  <Card title="API Reference" href="/api/introduction" />
+</CardGroup>

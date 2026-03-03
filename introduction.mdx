@@ -1,0 +1,238 @@
+---
+title: Introduction to ZapDev
+description: AI-powered development platform that lets you create web applications by chatting with AI agents in real-time sandboxes
+---
+
+# Welcome to ZapDev
+
+ZapDev is an AI-powered development platform that lets you create fully functional web applications simply by describing what you want to build. The platform uses advanced AI agents to generate, test, and iterate on code in real-time sandboxes.
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running in under 5 minutes
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Detailed setup and configuration guide
+  </Card>
+  <Card
+    title="Architecture"
+    icon="sitemap"
+    href="/development/architecture"
+  >
+    Learn how ZapDev works under the hood
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/introduction"
+  >
+    Explore the tRPC API and database schema
+  </Card>
+</CardGroup>
+
+## What is ZapDev?
+
+ZapDev combines conversational AI with isolated development environments to enable rapid application prototyping and development. Simply describe your application in natural language, and AI agents will:
+
+- Generate production-ready code using modern frameworks
+- Set up complete project structures with best practices
+- Create responsive UIs with Tailwind CSS and Shadcn/ui
+- Handle database schemas and API endpoints
+- Provide real-time previews as code is generated
+
+## Key Features
+
+### AI-Powered Code Generation
+
+Leverage advanced language models to generate complete applications from conversational descriptions.
+
+```typescript
+// AI agents orchestrate code generation through streaming events
+export interface StreamEvent {
+  type:
+    | "status"
+    | "text"
+    | "tool-call"
+    | "tool-output"
+    | "file-created"
+    | "file-updated"
+    | "progress"
+    | "files"
+    | "research-start"
+    | "research-complete"
+    | "time-budget"
+    | "error"
+    | "complete";
+  data: unknown;
+  timestamp?: number;
+}
+```
+
+### Real-Time Development Sandboxes
+
+Every project runs in an isolated E2B sandbox with a complete development environment, ensuring safe code execution and testing.
+
+<Note>
+E2B sandboxes provide isolated environments with Node.js, npm/bun, and all necessary build tools pre-configured.
+</Note>
+
+### Multiple Framework Support
+
+ZapDev supports building applications with your preferred framework:
+
+- **Next.js 15** - Full-stack React framework (default)
+- **Angular 19** - Enterprise-grade framework with Material Design
+- **React 18** - Modern React with Vite and Chakra UI
+- **Vue 3** - Progressive framework with Vuetify
+- **SvelteKit** - Compiler-based framework with DaisyUI
+
+```typescript
+// Framework types defined in Convex schema
+export const frameworkEnum = v.union(
+  v.literal("NEXTJS"),
+  v.literal("ANGULAR"),
+  v.literal("REACT"),
+  v.literal("VUE"),
+  v.literal("SVELTE")
+);
+```
+
+### Live Preview & Code Editor
+
+Watch your application come to life with split-pane interface showing:
+- Real-time application preview
+- File explorer with syntax highlighting
+- Code editor with theme support
+- Build output and error messages
+
+### Conversational Development
+
+Iteratively refine your application through natural conversation:
+
+1. Describe your initial application
+2. Review the generated code and preview
+3. Request changes or additions
+4. AI agents update the codebase in real-time
+
+### Smart Usage Tracking
+
+Built-in rate limiting and credit system:
+- **Free Tier**: 5 generations per day
+- **Pro Tier**: 100 generations per day
+- **Unlimited Tier**: Unrestricted usage
+
+## Tech Stack
+
+ZapDev is built with modern, production-ready technologies:
+
+<CardGroup cols={3}>
+  <Card title="Next.js 15" icon="react">
+    Latest App Router with React 19
+  </Card>
+  <Card title="Convex" icon="database">
+    Real-time database with reactive queries
+  </Card>
+  <Card title="tRPC" icon="plug">
+    End-to-end typesafe APIs
+  </Card>
+  <Card title="Clerk" icon="shield">
+    Modern authentication
+  </Card>
+  <Card title="E2B" icon="cube">
+    Isolated code sandboxes
+  </Card>
+  <Card title="Inngest" icon="bolt">
+    Background job processing
+  </Card>
+</CardGroup>
+
+### Full Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS v4
+- **UI Components**: Shadcn/ui, Radix UI, Lucide React
+- **Backend**: tRPC, Convex (real-time database)
+- **Authentication**: Clerk with JWT
+- **AI**: OpenRouter API (OpenAI, Anthropic, xAI), Cerebras
+- **Sandboxes**: E2B Code Interpreter
+- **Jobs**: Inngest + Agent Kit
+- **Billing**: Polar.sh
+
+## How It Works
+
+<Steps>
+  <Step title="Create a Project">
+    Start by creating a new project and selecting your preferred framework. Optionally import from Figma or GitHub.
+  </Step>
+  
+  <Step title="Describe Your Application">
+    Chat with AI agents to describe what you want to build. Be as detailed or high-level as you prefer.
+  </Step>
+  
+  <Step title="AI Generates Code">
+    Agents analyze your request, select the appropriate framework, and generate complete application code in an E2B sandbox.
+  </Step>
+  
+  <Step title="Preview & Iterate">
+    View your application in real-time. Request changes, add features, or fix issues through conversation.
+  </Step>
+  
+  <Step title="Export & Deploy">
+    Download your generated application and deploy it to your preferred hosting platform.
+  </Step>
+</Steps>
+
+### Architecture Overview
+
+```typescript
+// tRPC router structure - feature-based modules
+import { usageRouter } from '@/modules/usage/server/procedures';
+import { messagesRouter } from '@/modules/messages/server/procedures';
+import { projectsRouter } from '@/modules/projects/server/procedures';
+
+export const appRouter = createTRPCRouter({
+  usage: usageRouter,
+  messages: messagesRouter,
+  projects: projectsRouter,
+});
+```
+
+## Use Cases
+
+### Rapid Prototyping
+Quickly validate ideas by generating functional prototypes in minutes instead of hours.
+
+### Learning & Experimentation
+Explore different frameworks and patterns without manual setup and configuration.
+
+### Component Development
+Generate reusable UI components with proper TypeScript types and styling.
+
+### Full Applications
+Build complete applications with authentication, database schemas, and API endpoints.
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start Guide"
+    icon="play"
+    href="/quickstart"
+  >
+    Create your first AI-generated application in 5 minutes
+  </Card>
+  <Card
+    title="Installation Guide"
+    icon="gear"
+    href="/installation"
+  >
+    Complete setup with all environment variables and services
+  </Card>
+</CardGroup>

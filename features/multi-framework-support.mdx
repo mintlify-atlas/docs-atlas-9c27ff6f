@@ -1,0 +1,616 @@
+---
+title: Multi-Framework Support
+description: Build with Next.js, Angular, React, Vue, or Svelte - all with pre-configured templates and optimized component libraries
+---
+
+## Overview
+
+ZapDev supports five modern web frameworks, each with pre-installed dependencies, optimized configurations, and framework-specific AI prompts. The AI automatically selects the best framework for your needs, or you can specify your preference.
+
+<CardGroup cols={3}>
+  <Card title="Next.js" icon="▲">
+    **Default Framework**
+    
+    Full-stack React with SSR/SSG
+  </Card>
+  
+  <Card title="Angular" icon="🅰️">
+    **Enterprise Apps**
+    
+    TypeScript-first with Material Design
+  </Card>
+  
+  <Card title="React" icon="⚛️">
+    **Lightweight SPAs**
+    
+    Vite + Chakra UI
+  </Card>
+  
+  <Card title="Vue.js" icon="🟢">
+    **Progressive Framework**
+    
+    Composition API + Vuetify
+  </Card>
+  
+  <Card title="Svelte" icon="🔥">
+    **High Performance**
+    
+    SvelteKit + DaisyUI
+  </Card>
+</CardGroup>
+
+## Framework Selection
+
+The AI uses intelligent heuristics to choose the optimal framework:
+
+```typescript
+// src/prompts/framework-selector.ts
+export const FRAMEWORK_SELECTOR_PROMPT = `
+You are a framework selection expert.
+
+Selection Guidelines:
+- If user explicitly mentions a framework, choose that
+- If ambiguous, default to **nextjs** (most versatile)
+- Enterprise/complex = Angular
+- Performance emphasis = Svelte
+- Material Design = Angular or Vue
+- Vercel/Linear aesthetic = Next.js
+`;
+```
+
+### Selection Examples
+
+| User Request | Selected Framework | Reasoning |
+|--------------|-------------------|------------|
+| "Build a Netflix clone" | **Next.js** | Full-stack SSR, SEO, default choice |
+| "Create an Angular dashboard" | **Angular** | Explicit mention |
+| "Make a simple todo app" | **Next.js** | Default for ambiguous requests |
+| "Build a Material Design admin panel" | **Angular** | Material Design keyword |
+| "Create a fast portfolio" | **Svelte** | Performance emphasis |
+| "Build a Vue calendar" | **Vue** | Explicit mention |
+
+## Framework Configurations
+
+### Next.js (Default)
+
+<Info>
+**When to use**: Full-stack React apps, SEO-focused sites, e-commerce, marketing websites, SaaS applications
+</Info>
+
+**Environment**:
+- **Version**: Next.js 15.3.3
+- **Main File**: `app/page.tsx`
+- **Dev Port**: 3000
+- **Package Manager**: npm
+
+**Pre-installed Dependencies**:
+```json
+{
+  "next": "15.3.3",
+  "react": "19",
+  "react-dom": "19",
+  "tailwindcss": "^4.0.0",
+  "typescript": "^5.0.0",
+  "@radix-ui/*": "latest",  // Shadcn UI primitives
+  "lucide-react": "latest"  // Icons
+}
+```
+
+**Component Library**: Shadcn UI (50+ components)
+```tsx
+// All Shadcn components pre-installed
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Dialog } from "@/components/ui/dialog"
+// ... and 47 more
+```
+
+**AI Prompt Highlights**:
+```typescript
+// src/prompts/nextjs.ts
+Critical Rules:
+1. Add "use client" to TOP of app/page.tsx and any files using React hooks
+2. ALL Shadcn components are pre-installed - just import and use
+3. Import utility: import { cn } from "@/lib/utils"
+4. Before using a Shadcn component, use readFiles to inspect its API
+5. Build all surfaces with Shadcn primitives
+6. Compose UIs: Tailwind on top of Shadcn, no bare HTML elements
+```
+
+**File Structure**:
+```
+app/
+├── page.tsx              # Main entry (requires "use client")
+├── layout.tsx            # Root layout
+└── globals.css           # Tailwind directives
+
+components/
+├── ui/                   # Shadcn UI (pre-installed)
+│   ├── button.tsx
+│   ├── card.tsx
+│   └── ... (50+ components)
+└── custom/               # Your components
+
+lib/
+└── utils.ts              # cn() utility
+```
+
+---
+
+### Angular
+
+<Info>
+**When to use**: Enterprise applications, complex forms, Material Design, TypeScript-heavy projects, RxJS workflows
+</Info>
+
+**Environment**:
+- **Version**: Angular 19
+- **Main Component**: `src/app/app.component.ts`
+- **Dev Port**: 4200
+- **Package Manager**: npm
+
+**Pre-installed Dependencies**:
+```json
+{
+  "@angular/core": "19",
+  "@angular/material": "19",
+  "@angular/cdk": "19",
+  "tailwindcss": "latest",
+  "rxjs": "~7.8.0",
+  "typescript": "~5.3.0"
+}
+```
+
+**Component Library**: Angular Material
+```typescript
+// Import Material modules
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
+```
+
+**AI Prompt Highlights**:
+```typescript
+// src/prompts/angular.ts
+Angular Specific Rules:
+- Use standalone components (standalone: true)
+- Import CommonModule for *ngIf, *ngFor directives
+- Import ReactiveFormsModule or FormsModule for forms
+- Use Angular Material components from '@angular/material/*'
+- Use signals for reactive state management where appropriate
+- Use RxJS operators for async operations
+```
+
+**Component Structure**:
+```typescript
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { MatButtonModule } from '@angular/material/button';
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [CommonModule, MatButtonModule],
+  template: `
+    <div class="p-4">
+      <mat-button color="primary">Click Me</mat-button>
+    </div>
+  `,
+  styles: `/* Tailwind classes or custom CSS */`
+})
+export class DashboardComponent {
+  // Use signals for reactive state
+  count = signal(0);
+  
+  increment() {
+    this.count.update(c => c + 1);
+  }
+}
+```
+
+**File Structure**:
+```
+src/
+├── app/
+│   ├── app.component.ts       # Main component
+│   ├── app.config.ts          # App configuration
+│   └── components/            # Feature components
+├── services/                  # Injectable services
+├── models/                    # TypeScript interfaces
+└── styles.scss                # Global styles + Tailwind
+```
+
+---
+
+### React (Vite)
+
+<Info>
+**When to use**: Simple React SPAs, client-side apps, learning projects, lightweight setups without SSR
+</Info>
+
+**Environment**:
+- **Version**: React 18
+- **Build Tool**: Vite 5.x
+- **Main File**: `src/App.tsx`
+- **Dev Port**: 5173
+- **Package Manager**: npm
+
+**Pre-installed Dependencies**:
+```json
+{
+  "react": "^18.3.0",
+  "react-dom": "^18.3.0",
+  "@chakra-ui/react": "latest",
+  "@emotion/react": "latest",
+  "@emotion/styled": "latest",
+  "framer-motion": "latest",  // Chakra dependency
+  "tailwindcss": "latest"
+}
+```
+
+**Component Library**: Chakra UI
+```tsx
+import { Button, Box, Card, Heading } from '@chakra-ui/react';
+
+function App() {
+  return (
+    <Box p={4}>
+      <Card p={6}>
+        <Heading>Hello Chakra</Heading>
+        <Button colorScheme="blue">Click Me</Button>
+      </Card>
+    </Box>
+  );
+}
+```
+
+**AI Prompt Highlights**:
+```typescript
+// src/prompts/react.ts
+React Specific Rules:
+- Use functional components with hooks
+- Import React hooks from 'react' (useState, useEffect, etc.)
+- Use Chakra UI components from '@chakra-ui/react'
+- Use Chakra's built-in styling props (bg, p, m, etc.)
+- Leverage Chakra's theming system
+```
+
+**File Structure**:
+```
+src/
+├── App.tsx                # Main component
+├── main.tsx               # Entry point (ChakraProvider)
+├── components/            # Reusable components
+├── hooks/                 # Custom hooks
+├── utils/                 # Helper functions
+└── types/                 # TypeScript definitions
+```
+
+---
+
+### Vue.js
+
+<Info>
+**When to use**: Progressive web apps, flexible architecture, Vuetify Material Design, gradual adoption scenarios
+</Info>
+
+**Environment**:
+- **Version**: Vue 3
+- **Build Tool**: Vite 5.x
+- **Main Component**: `src/App.vue`
+- **Dev Port**: 5173
+- **Package Manager**: npm
+
+**Pre-installed Dependencies**:
+```json
+{
+  "vue": "^3.4.0",
+  "vuetify": "^3.5.0",
+  "@mdi/font": "latest",     // Material Design Icons
+  "tailwindcss": "latest"
+}
+```
+
+**Component Library**: Vuetify 3
+```vue
+<template>
+  <v-app>
+    <v-main>
+      <v-container>
+        <v-card>
+          <v-card-title>Hello Vuetify</v-card-title>
+          <v-card-text>
+            <v-btn color="primary">Click Me</v-btn>
+          </v-card-text>
+        </v-card>
+      </v-container>
+    </v-main>
+  </v-app>
+</template>
+```
+
+**AI Prompt Highlights**:
+```typescript
+// src/prompts/vue.ts
+Vue Specific Rules:
+- Use Composition API with <script setup> syntax
+- Import Vue reactivity from 'vue' (ref, computed, watch, etc.)
+- Use Vuetify components from 'vuetify/components'
+- Use proper v-bind, v-on, v-model directives
+- Implement proper component lifecycle hooks
+```
+
+**Component Structure**:
+```vue
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { VBtn, VCard } from 'vuetify/components';
+
+interface Props {
+  title: string;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<{
+  click: [id: string]
+}>();
+
+const count = ref(0);
+const doubled = computed(() => count.value * 2);
+</script>
+
+<template>
+  <v-card>
+    <v-card-title>{{ title }}</v-card-title>
+    <v-card-text>Count: {{ doubled }}</v-card-text>
+    <v-btn @click="count++">Increment</v-btn>
+  </v-card>
+</template>
+
+<style scoped>
+/* Scoped styles or Tailwind classes */
+</style>
+```
+
+**File Structure**:
+```
+src/
+├── App.vue                # Main component
+├── main.ts                # Entry (createVuetify)
+├── components/            # .vue components
+├── composables/           # useFeature.ts
+├── utils/                 # Helpers
+└── types/                 # TypeScript types
+```
+
+---
+
+### Svelte
+
+<Info>
+**When to use**: High performance apps, minimal bundle size, interactive visualizations, progressive web apps
+</Info>
+
+**Environment**:
+- **Version**: SvelteKit
+- **Build Tool**: Vite 5.x
+- **Main Page**: `src/routes/+page.svelte`
+- **Dev Port**: 5173
+- **Package Manager**: npm
+
+**Pre-installed Dependencies**:
+```json
+{
+  "svelte": "^4.0.0",
+  "@sveltejs/kit": "^2.0.0",
+  "daisyui": "latest",        // Tailwind component library
+  "tailwindcss": "latest"
+}
+```
+
+**Component Library**: DaisyUI (Tailwind-based)
+```svelte
+<script lang="ts">
+  let count = 0;
+  $: doubled = count * 2;  // Reactive declaration
+</script>
+
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body">
+    <h2 class="card-title">Counter</h2>
+    <p>Count: {doubled}</p>
+    <div class="card-actions">
+      <button class="btn btn-primary" on:click={() => count++}>
+        Increment
+      </button>
+    </div>
+  </div>
+</div>
+```
+
+**AI Prompt Highlights**:
+```typescript
+// src/prompts/svelte.ts
+Svelte Specific Rules:
+- Use Svelte's reactive declarations with $:
+- Use DaisyUI classes directly in markup (btn, card, modal, etc.)
+- Use SvelteKit's load functions for data fetching
+- Implement proper lifecycle (onMount, onDestroy)
+- Use Svelte stores for global state
+```
+
+**Component Structure**:
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { writable } from 'svelte/store';
+  
+  // Props
+  export let title: string;
+  export let count = 0;
+  
+  // Reactive declarations
+  $: doubled = count * 2;
+  $: greeting = `Count is ${count}`;
+  
+  // Functions
+  function handleClick() {
+    count++;
+  }
+  
+  // Lifecycle
+  onMount(() => {
+    console.log('Component mounted');
+  });
+</script>
+
+<div class="card">
+  <h1 class="text-2xl font-bold">{title}</h1>
+  <p>{greeting}</p>
+  <p>Doubled: {doubled}</p>
+  <button class="btn" on:click={handleClick}>Click</button>
+</div>
+
+<style>
+  /* Component-scoped styles */
+</style>
+```
+
+**File Structure**:
+```
+src/
+├── routes/
+│   ├── +page.svelte       # Home page
+│   ├── +layout.svelte     # Root layout
+│   └── about/
+│       └── +page.svelte   # /about route
+├── lib/
+│   ├── components/        # Reusable .svelte
+│   ├── stores/            # Svelte stores
+│   ├── utils/             # Helpers
+│   └── types/             # TypeScript
+```
+
+## Framework Comparison
+
+### Features Matrix
+
+| Feature | Next.js | Angular | React | Vue | Svelte |
+|---------|---------|---------|-------|-----|--------|
+| **SSR/SSG** | ✅ Built-in | ⚠️ Via Universal | ❌ Client-only | ⚠️ Via Nuxt | ✅ SvelteKit |
+| **TypeScript** | ✅ Strict | ✅ Native | ✅ Configured | ✅ Configured | ✅ Configured |
+| **Component Library** | Shadcn UI (50+) | Material (40+) | Chakra UI (50+) | Vuetify (80+) | DaisyUI (50+) |
+| **Learning Curve** | Medium | Steep | Easy | Easy | Easy |
+| **Bundle Size** | Medium | Large | Small | Small | Tiny |
+| **Performance** | Fast | Fast | Fast | Fast | Fastest |
+| **Enterprise Ready** | ✅ Yes | ✅ Yes | ⚠️ Needs setup | ⚠️ Needs setup | ⚠️ Needs setup |
+| **SEO Friendly** | ✅ Excellent | ⚠️ Requires SSR | ❌ Poor | ⚠️ Requires SSR | ✅ Excellent |
+
+### When to Choose Each
+
+<Tabs>
+  <Tab title="Next.js">
+    **Choose Next.js when**:
+    - Building full-stack applications
+    - SEO is critical (e-commerce, blogs, marketing)
+    - Need API routes and serverless functions
+    - Want Vercel deployment optimization
+    - Prefer React ecosystem with SSR/SSG
+    
+    **Avoid when**:
+    - Building simple client-only apps
+    - Don't need SSR complexity
+    - Want minimal bundle size
+  </Tab>
+  
+  <Tab title="Angular">
+    **Choose Angular when**:
+    - Building enterprise applications
+    - TypeScript is required (not optional)
+    - Need comprehensive framework (not library)
+    - Want Material Design out-of-box
+    - Team has Java/C# background
+    
+    **Avoid when**:
+    - Building small/simple apps
+    - Bundle size is critical
+    - Prefer lightweight solutions
+  </Tab>
+  
+  <Tab title="React">
+    **Choose React (Vite) when**:
+    - Building simple SPAs
+    - Don't need SSR/SSG
+    - Want fast dev server (Vite HMR)
+    - Learning React fundamentals
+    - Need Chakra UI specifically
+    
+    **Avoid when**:
+    - SEO is important (use Next.js instead)
+    - Need server-side rendering
+    - Building complex routing apps
+  </Tab>
+  
+  <Tab title="Vue">
+    **Choose Vue when**:
+    - Gradual adoption into existing projects
+    - Prefer template syntax over JSX
+    - Want Vuetify Material Design
+    - Team familiar with Angular/React hybrids
+    - Building PWAs
+    
+    **Avoid when**:
+    - Need largest ecosystem (React/Next.js)
+    - Require enterprise support
+  </Tab>
+  
+  <Tab title="Svelte">
+    **Choose Svelte when**:
+    - Performance is top priority
+    - Need smallest bundle sizes
+    - Building interactive visualizations
+    - Want compile-time optimizations
+    - Prefer simple, clean syntax
+    
+    **Avoid when**:
+    - Need largest community/ecosystem
+    - Require enterprise-grade tooling
+    - Team unfamiliar with reactive declarations
+  </Tab>
+</Tabs>
+
+## Switching Frameworks
+
+You can explicitly request a framework change:
+
+```
+User: "Convert this to Angular"
+AI: *Regenerates using Angular template with Material Design*
+
+User: "Rebuild with Svelte for performance"
+AI: *Recreates using SvelteKit with DaisyUI*
+```
+
+<Note>
+Switching frameworks creates a new sandbox with the target framework's template. Your previous code is not automatically migrated.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="AI Code Generation" icon="wand-magic-sparkles" href="/features/ai-code-generation">
+    See how AI uses framework-specific prompts
+  </Card>
+  
+  <Card title="Real-Time Sandboxes" icon="box" href="/features/real-time-sandboxes">
+    Learn about pre-configured E2B templates
+  </Card>
+  
+  <Card title="Live Preview" icon="eye" href="/features/live-preview">
+    View generated apps in split-pane interface
+  </Card>
+  
+  <Card title="File Explorer" icon="folder" href="/features/file-explorer">
+    Browse framework files with syntax highlighting
+  </Card>
+</CardGroup>

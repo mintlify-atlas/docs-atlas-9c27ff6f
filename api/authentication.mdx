@@ -1,0 +1,363 @@
+---
+title: Authentication
+description: Learn how ZapDev uses Clerk JWT tokens to authenticate API requests in both tRPC and Convex
+---
+
+# Authentication
+
+ZapDev uses **Clerk** for authentication with JWT (JSON Web Token) based authorization. All authenticated API requests require a valid Clerk JWT token.
+
+## Authentication Flow
+
+1. User signs in through Clerk (OAuth, email/password, etc.)
+2. Clerk generates a JWT token with user identity
+3. Token is included in API requests to authenticate the user
+4. Server validates the token and extracts user identity
+5. Protected endpoints verify user authorization
+
+## Clerk JWT Configuration
+
+### Convex Authentication
+
+Convex is configured to accept Clerk JWTs through `convex/auth.config.ts`:
+
+```typescript
+export default {
+  providers: [
+    {
+      domain: process.env.CLERK_JWT_ISSUER_DOMAIN!,
+      applicationID: "convex",
+    },
+  ],
+};
+```
+
+**Environment Variables**:
+- `CLERK_JWT_ISSUER_DOMAIN`: Your Clerk instance domain (e.g., `clerk.your-app.com`)
+- `CLERK_JWT_TEMPLATE_NAME`: JWT template name (default: `"convex"`)
+
+### Server-Side Token Retrieval
+
+The `src/lib/auth-server.ts` module provides utilities for retrieving and using Clerk tokens:
+
+```typescript
+import { auth } from '@clerk/nextjs/server';
+
+export async function getToken(): Promise<string | null> {
+  try {
+    const authResult = await auth();
+    const token = await authResult.getToken?.({ 
+      template: clerkJwtTemplate 
+    });
+    return token ?? null;
+  } catch (error) {
+    console.error("Failed to get token:", error);
+    return null;
+  }
+}
+```
+
+## Authentication Helpers
+
+### Convex Authentication Helpers
+
+Convex provides several authentication helpers in `convex/helpers.ts`:
+
+#### `getCurrentUserId(ctx)`
+
+Returns the current user's Clerk ID or `null` if not authenticated.
+
+```typescript
+export async function getCurrentUserId(
+  ctx: QueryCtx | MutationCtx
+): Promise<string | null> {
+  const identity = await ctx.auth.getUserIdentity();
+  return identity?.subject || null;
+}
+```
+
+**Usage**:
+```typescript
+const userId = await getCurrentUserId(ctx);
+if (!userId) {
+  // Handle unauthenticated case
+}
+```
+
+#### `requireAuth(ctx)`
+
+Requires authentication and throws an error if the user is not authenticated. Returns the user's Clerk ID.
+
+```typescript
+export async function requireAuth(
+  ctx: QueryCtx | MutationCtx
+): Promise<string> {
+  const userId = await getCurrentUserId(ctx);
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
+  return userId;
+}
+```
+
+**Usage in Convex Functions** (`convex/projects.ts:287`):
+```typescript
+export const get = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    
+    // Verify ownership
+    if (project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+    
+    return project;
+  },
+});
+```
+
+### tRPC Authentication Middleware
+
+tRPC uses middleware to enforce authentication. The context is created with user information from Clerk (`src/trpc/init.ts:6`):
+
+```typescript
+import { getUser } from '@/lib/auth-server';
+
+export const createTRPCContext = cache(async () => {
+  const user = await getUser();
+  return { user };
+});
+```
+
+**Protected Procedure** (`src/trpc/init.ts:25`):
+```typescript
+const isAuthed = t.middleware(({ next, ctx }) => {
+  if (!ctx.user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Not authenticated",
+    });
+  }
+
+  return next({
+    ctx: {
+      user: ctx.user,
+    },
+  });
+});
+
+export const protectedProcedure = t.procedure.use(isAuthed);
+```
+
+**Usage in tRPC Routers**:
+```typescript
+import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+import { z } from 'zod';
+
+export const myRouter = createTRPCRouter({
+  myProtectedEndpoint: protectedProcedure
+    .input(z.object({ name: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // ctx.user is guaranteed to exist
+      const userId = ctx.user.id;
+      // ... your logic
+    }),
+});
+```
+
+## User Information
+
+### Getting User Details
+
+The `getUser()` function from `src/lib/auth-server.ts:14` retrieves the current user's information:
+
+```typescript
+export async function getUser(): Promise<AuthenticatedUser | null> {
+  try {
+    const user = await currentUser();
+    if (!user) return null;
+
+    return {
+      id: user.id,
+      primaryEmail: user.primaryEmailAddress?.emailAddress ?? null,
+      displayName: user.fullName ?? user.username ?? user.firstName ?? null,
+      imageUrl: user.imageUrl ?? null,
+    };
+  } catch (error) {
+    console.error("Failed to get user:", error);
+    return null;
+  }
+}
+```
+
+**Type Definition**:
+```typescript
+type AuthenticatedUser = {
+  id: string;                    // Clerk user ID
+  primaryEmail: string | null;   // User's email
+  displayName: string | null;    // Display name
+  imageUrl: string | null;       // Profile image URL
+};
+```
+
+## Authenticated Convex Client
+
+For server-side operations, use the authenticated Convex client (`src/lib/auth-server.ts:48`):
+
+```typescript
+export async function getConvexClientWithAuth() {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!convexUrl) {
+    throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
+  }
+
+  const httpClient = new ConvexHttpClient(convexUrl);
+  const token = await getToken();
+  
+  if (token) {
+    httpClient.setAuth(token);
+  }
+
+  return httpClient;
+}
+```
+
+**Usage in Server Components**:
+```typescript
+import { getConvexClientWithAuth } from '@/lib/auth-server';
+import { api } from '@/convex/_generated/api';
+
+export async function MyServerComponent() {
+  const convex = await getConvexClientWithAuth();
+  
+  // All queries/mutations are authenticated
+  const projects = await convex.query(api.projects.list);
+  
+  return <div>{/* ... */}</div>;
+}
+```
+
+## Authorization Patterns
+
+### Resource Ownership Verification
+
+Always verify that the authenticated user owns the resource they're accessing:
+
+```typescript
+export const update = mutation({
+  args: {
+    projectId: v.id("projects"),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    
+    // Critical: Verify ownership
+    if (project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+    
+    await ctx.db.patch(args.projectId, {
+      name: args.name,
+      updatedAt: Date.now(),
+    });
+    
+    return args.projectId;
+  },
+});
+```
+
+### Subscription-Based Access
+
+Check subscription tiers using helper functions in `convex/helpers.ts:20`:
+
+```typescript
+export async function hasProAccess(
+  ctx: QueryCtx | MutationCtx
+): Promise<boolean> {
+  const userId = await getCurrentUserId(ctx);
+  if (!userId) return false;
+
+  const subscription = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("status"), "active"))
+    .first();
+
+  if (!subscription) return false;
+  
+  return subscription.productId === 
+    process.env.NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID;
+}
+```
+
+**Other Helper Functions**:
+- `hasUnlimitedAccess(ctx)`: Check for unlimited tier
+- `hasPlan(ctx, planProductId)`: Check for specific plan
+- `hasFeature(ctx, featureId)`: Check for specific feature access
+
+## Security Best Practices
+
+1. **Always Use Authentication Helpers**: Use `requireAuth()` or the `protectedProcedure` middleware
+2. **Verify Resource Ownership**: Check that `project.userId === userId` before mutations
+3. **Never Expose Internal IDs**: Don't return Clerk user IDs in public responses
+4. **Use Indexes for Queries**: Filter by `userId` using indexes, not `.filter()`
+5. **Handle Token Expiry**: Implement proper error handling for expired tokens
+6. **Validate All Inputs**: Use Zod schemas (tRPC) or Convex validators (`v.*`)
+
+## Error Handling
+
+### Unauthorized Errors
+
+**Convex**:
+```typescript
+if (!userId) {
+  throw new Error("Unauthorized");
+}
+```
+
+**tRPC**:
+```typescript
+throw new TRPCError({
+  code: "UNAUTHORIZED",
+  message: "Not authenticated",
+});
+```
+
+### Client-Side Handling
+
+```typescript
+'use client';
+import { useRouter } from 'next/navigation';
+import { useTRPC } from '@/trpc/client';
+
+export function MyComponent() {
+  const router = useRouter();
+  const { data, error } = useTRPC.projects.list.useQuery();
+  
+  if (error?.data?.code === 'UNAUTHORIZED') {
+    router.push('/sign-in');
+  }
+  
+  // ... component logic
+}
+```
+
+## Next Steps
+
+- [API Overview](/api/introduction) - Learn about the dual API architecture
+- [Projects API](/api/projects) - Project management with authentication
+- [Usage API](/api/usage) - Credit tracking and subscription tiers

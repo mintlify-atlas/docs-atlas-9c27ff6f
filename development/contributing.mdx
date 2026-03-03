@@ -1,0 +1,228 @@
+---
+title: "Contributing to ZapDev"
+description: "Guidelines for contributing to the ZapDev AI-powered development platform"
+---
+
+## Welcome Contributors
+
+Thank you for your interest in contributing to ZapDev! This guide will help you get started with contributing to our AI-powered development platform.
+
+## Getting Started
+
+Before you begin contributing, make sure you have the following prerequisites installed:
+
+- **Bun** (package manager - required)
+- **Docker** (for E2B template builds)
+- **Node.js** 18+ (for compatibility)
+- **PostgreSQL** or access to a database URL
+
+### Initial Setup
+
+<Steps>
+  <Step title="Fork and Clone">
+    Fork the repository on GitHub and clone your fork locally:
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/zapdev.git
+    cd zapdev
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install all project dependencies using Bun:
+    ```bash
+    bun install
+    ```
+    
+    <Warning>
+      **NEVER** use `npm`, `pnpm`, or `yarn` for this project. Always use `bun` as the package manager.
+    </Warning>
+  </Step>
+
+  <Step title="Configure Environment">
+    Copy the example environment file and fill in your credentials:
+    ```bash
+    cp env.example .env
+    ```
+    
+    Required environment variables:
+    - `DATABASE_URL` - PostgreSQL connection string
+    - `OPENROUTER_API_KEY` - Vercel AI Gateway key
+    - `E2B_API_KEY` - E2B sandbox API key
+    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk auth public key
+    - `CLERK_SECRET_KEY` - Clerk auth secret key
+    - `INNGEST_EVENT_KEY` - Inngest event key
+    - `INNGEST_SIGNING_KEY` - Inngest signing key
+  </Step>
+
+  <Step title="Build E2B Template">
+    Before running the application, build the E2B sandbox template:
+    ```bash
+    # Install E2B CLI
+    npm i -g @e2b/cli
+    
+    # Login to E2B
+    e2b auth login
+    
+    # Navigate to template directory
+    cd sandbox-templates/nextjs
+    
+    # Build the template
+    e2b template build --name your-template-name --cmd "/compile_page.sh"
+    ```
+    
+    After building, update the template name in `src/inngest/functions.ts:22`
+  </Step>
+
+  <Step title="Start Development Servers">
+    Run the development servers in two separate terminals:
+    
+    **Terminal 1 - Next.js:**
+    ```bash
+    bun run dev
+    ```
+    
+    **Terminal 2 - Convex Backend:**
+    ```bash
+    bun run convex:dev
+    ```
+  </Step>
+</Steps>
+
+## Development Workflow
+
+### Making Changes
+
+1. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Make Your Changes**
+   - Follow the code conventions (see [conventions.mdx](./conventions))
+   - Write tests for new features
+   - Ensure your changes don't break existing tests
+
+3. **Run Tests**
+   ```bash
+   bun run test
+   ```
+
+4. **Run Linter**
+   ```bash
+   bun run lint
+   ```
+
+5. **Build Locally**
+   ```bash
+   bun run build
+   ```
+
+### Commit Guidelines
+
+We follow conventional commit messages:
+
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `style:` - Code style changes (formatting, etc.)
+- `refactor:` - Code refactoring
+- `test:` - Test additions or changes
+- `chore:` - Build process or auxiliary tool changes
+
+**Examples:**
+```bash
+git commit -m "feat: add framework selection dialog"
+git commit -m "fix: resolve E2B sandbox timeout issue"
+git commit -m "docs: update contributing guidelines"
+```
+
+### Pull Request Process
+
+<Steps>
+  <Step title="Push Your Changes">
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Create Pull Request">
+    - Go to the repository on GitHub
+    - Click "New Pull Request"
+    - Select your feature branch
+    - Fill in the PR template with:
+      - Description of changes
+      - Related issue numbers
+      - Screenshots (if UI changes)
+      - Testing performed
+  </Step>
+
+  <Step title="Code Review">
+    - Address reviewer feedback
+    - Push additional commits if needed
+    - Ensure CI checks pass
+  </Step>
+
+  <Step title="Merge">
+    Once approved, a maintainer will merge your PR
+  </Step>
+</Steps>
+
+## Project Structure
+
+Understanding the codebase structure will help you navigate and contribute effectively:
+
+```
+./
+├── src/
+│   ├── app/              # Next.js 15 App Router pages
+│   ├── modules/          # Feature modules (home, projects, messages, usage)
+│   ├── agents/           # AI agent orchestration (SSE path)
+│   ├── inngest/          # Inngest + Agent Kit background workflows
+│   ├── prompts/          # Framework-specific LLM prompts
+│   ├── components/ui/    # Shadcn/ui components
+│   ├── lib/              # Utilities, framework config
+│   └── trpc/             # Type-safe API (client/server)
+├── convex/               # Real-time database (schema, queries, mutations)
+├── sandbox-templates/    # E2B sandbox configs (nextjs, angular, react, vue, svelte)
+├── tests/                # Jest test suite with mocks
+└── explanations/         # Documentation (ALL .md files go here)
+```
+
+## Where to Contribute
+
+### Areas We Need Help
+
+- **Bug Fixes** - Check the issues labeled `bug`
+- **Features** - Look for issues labeled `enhancement`
+- **Documentation** - Help improve our docs (issues labeled `documentation`)
+- **Tests** - Increase test coverage
+- **Performance** - Optimize E2B sandbox initialization
+- **Framework Support** - Improve Angular, Vue, Svelte, React templates
+
+### Good First Issues
+
+Look for issues labeled `good first issue` - these are great for newcomers!
+
+## Code of Conduct
+
+- Be respectful and inclusive
+- Provide constructive feedback
+- Focus on the code, not the person
+- Help create a welcoming environment for all contributors
+
+## Getting Help
+
+- **Questions?** Open a discussion on GitHub
+- **Bugs?** Open an issue with reproduction steps
+- **Feature Ideas?** Open an issue with your proposal
+
+## Additional Resources
+
+- [Testing Guide](./testing) - Learn about our testing setup
+- [Code Conventions](./conventions) - Follow our coding standards
+- [Development Guide](/development) - Technical development details
+- [README](https://github.com/codewithantonio/zapdev) - Project overview
+
+---
+
+Thank you for contributing to ZapDev! Your efforts help make AI-powered development accessible to everyone.

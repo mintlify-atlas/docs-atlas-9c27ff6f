@@ -1,0 +1,720 @@
+---
+title: "Self-Hosted Deployment"
+description: "Deploy ZapDev on your own infrastructure with complete control over hosting and scaling"
+---
+
+Self-hosting ZapDev gives you complete control over your deployment environment. This guide covers deploying to VPS providers, on-premises servers, and custom infrastructure.
+
+<Note>
+  Self-hosting requires more configuration than Vercel but provides maximum flexibility and control.
+</Note>
+
+## Prerequisites
+
+- Linux server (Ubuntu 22.04+ recommended)
+- Node.js 18+ or Bun runtime
+- Nginx or Caddy for reverse proxy
+- SSL certificate (Let's Encrypt recommended)
+- 2GB+ RAM, 2+ CPU cores
+- All required service accounts (Convex, Clerk, E2B, etc.)
+
+## Server Providers
+
+Recommended VPS providers:
+
+- **DigitalOcean** - Droplets starting at $12/month
+- **Linode/Akamai** - Shared CPU instances
+- **Vultr** - Cloud compute instances
+- **Hetzner** - Cost-effective European hosting
+- **AWS Lightsail** - Simple AWS alternative
+- **On-premises** - Your own hardware
+
+## Initial Server Setup
+
+<Steps>
+  <Step title="Create Server Instance">
+    Create a new instance with:
+    - **OS**: Ubuntu 22.04 LTS
+    - **RAM**: 2GB minimum (4GB recommended)
+    - **CPU**: 2 cores minimum
+    - **Storage**: 25GB minimum
+    - **Region**: Closest to your users
+  </Step>
+
+  <Step title="Connect via SSH">
+    ```bash
+    ssh root@your-server-ip
+    ```
+  </Step>
+
+  <Step title="Update System">
+    ```bash
+    apt update && apt upgrade -y
+    ```
+  </Step>
+
+  <Step title="Create Non-Root User">
+    ```bash
+    # Create user
+    adduser zapdev
+    
+    # Add to sudo group
+    usermod -aG sudo zapdev
+    
+    # Switch to new user
+    su - zapdev
+    ```
+  </Step>
+</Steps>
+
+## Install Dependencies
+
+<Steps>
+  <Step title="Install Bun">
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    
+    # Add to PATH
+    echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.bashrc
+    source ~/.bashrc
+    
+    # Verify installation
+    bun --version
+    ```
+  </Step>
+
+  <Step title="Install Git">
+    ```bash
+    sudo apt install git -y
+    ```
+  </Step>
+
+  <Step title="Install Nginx">
+    ```bash
+    sudo apt install nginx -y
+    sudo systemctl enable nginx
+    sudo systemctl start nginx
+    ```
+  </Step>
+
+  <Step title="Install Certbot (SSL)">
+    ```bash
+    sudo apt install certbot python3-certbot-nginx -y
+    ```
+  </Step>
+</Steps>
+
+## Deploy Application
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    cd ~
+    git clone https://github.com/your-username/zapdev.git
+    cd zapdev
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    ```bash
+    bun install
+    ```
+  </Step>
+
+  <Step title="Create Environment File">
+    ```bash
+    cp env.example .env.production
+    nano .env.production
+    ```
+    
+    Add all required environment variables (see Environment Configuration below).
+  </Step>
+
+  <Step title="Build Application">
+    ```bash
+    # Set environment
+    export NODE_ENV=production
+    
+    # Build
+    bun run build
+    ```
+  </Step>
+</Steps>
+
+## Environment Configuration
+
+Edit `.env.production` with your values:
+
+```bash
+# Application
+NEXT_PUBLIC_APP_URL="https://your-domain.com"
+
+# Convex Database
+NEXT_PUBLIC_CONVEX_URL="https://your-deployment.convex.cloud"
+NEXT_PUBLIC_CONVEX_SITE_URL="https://your-domain.com"
+
+# Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_live_..."
+CLERK_SECRET_KEY="sk_live_..."
+CLERK_JWT_ISSUER_DOMAIN="clerk.your-domain.com"
+CLERK_JWT_TEMPLATE_NAME="convex"
+
+# AI Services
+OPENROUTER_API_KEY="sk-or-..."
+OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
+CEREBRAS_API_KEY="csk-..."
+VERCEL_AI_GATEWAY_API_KEY="..."
+
+# E2B Sandboxes
+E2B_API_KEY="e2b_..."
+
+# Inngest Background Jobs
+INNGEST_EVENT_KEY="ac9_..."
+INNGEST_SIGNING_KEY="signkey-..."
+
+# Polar.sh Billing
+POLAR_ACCESS_TOKEN="polar_at_..."
+POLAR_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_POLAR_ORGANIZATION_ID="org_..."
+NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID="prod_..."
+NEXT_PUBLIC_POLAR_PRO_PRICE_ID="price_..."
+NEXT_PUBLIC_POLAR_SERVER="production"
+
+# Optional Services
+BRAVE_SEARCH_API_KEY="..."
+FIRECRAWL_API_KEY="..."
+UPLOADTHING_TOKEN="..."
+NEXT_PUBLIC_SENTRY_DSN="..."
+SENTRY_DSN="..."
+```
+
+## Process Management with PM2
+
+Use PM2 to keep the application running:
+
+<Steps>
+  <Step title="Install PM2">
+    ```bash
+    bun add -g pm2
+    ```
+  </Step>
+
+  <Step title="Create PM2 Ecosystem File">
+    ```bash
+    nano ecosystem.config.js
+    ```
+    
+    ```javascript
+    module.exports = {
+      apps: [{
+        name: 'zapdev',
+        script: 'bun',
+        args: 'run start',
+        cwd: '/home/zapdev/zapdev',
+        env: {
+          NODE_ENV: 'production',
+          PORT: 3000
+        },
+        env_file: '.env.production',
+        instances: 'max',
+        exec_mode: 'cluster',
+        max_memory_restart: '2G',
+        error_file: './logs/error.log',
+        out_file: './logs/out.log',
+        log_file: './logs/combined.log',
+        time: true,
+        autorestart: true,
+        watch: false
+      }]
+    };
+    ```
+  </Step>
+
+  <Step title="Start Application">
+    ```bash
+    # Create logs directory
+    mkdir -p logs
+    
+    # Start with PM2
+    pm2 start ecosystem.config.js
+    
+    # Save PM2 configuration
+    pm2 save
+    
+    # Enable PM2 startup on boot
+    pm2 startup
+    # Run the command PM2 outputs
+    ```
+  </Step>
+
+  <Step title="Verify Application">
+    ```bash
+    # Check status
+    pm2 status
+    
+    # View logs
+    pm2 logs zapdev
+    
+    # Test locally
+    curl http://localhost:3000
+    ```
+  </Step>
+</Steps>
+
+## Configure Nginx Reverse Proxy
+
+<Steps>
+  <Step title="Create Nginx Configuration">
+    ```bash
+    sudo nano /etc/nginx/sites-available/zapdev
+    ```
+    
+    ```nginx
+    # Rate limiting
+    limit_req_zone $binary_remote_addr zone=zapdev_limit:10m rate=10r/s;
+    
+    # Upstream to Next.js
+    upstream zapdev_backend {
+        server 127.0.0.1:3000;
+        keepalive 64;
+    }
+    
+    server {
+        listen 80;
+        listen [::]:80;
+        server_name your-domain.com www.your-domain.com;
+        
+        # Redirect HTTP to HTTPS (will be configured by Certbot)
+        return 301 https://$server_name$request_uri;
+    }
+    
+    server {
+        listen 443 ssl http2;
+        listen [::]:443 ssl http2;
+        server_name your-domain.com www.your-domain.com;
+        
+        # SSL certificates (managed by Certbot)
+        # ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+        # ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+        
+        # SSL configuration
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+        
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        
+        # Logs
+        access_log /var/log/nginx/zapdev.access.log;
+        error_log /var/log/nginx/zapdev.error.log;
+        
+        # Max upload size
+        client_max_body_size 10M;
+        
+        # Rate limiting
+        limit_req zone=zapdev_limit burst=20 nodelay;
+        
+        location / {
+            proxy_pass http://zapdev_backend;
+            proxy_http_version 1.1;
+            
+            # Proxy headers
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_cache_bypass $http_upgrade;
+            
+            # Timeouts
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+        }
+        
+        # Static files caching
+        location /_next/static {
+            proxy_pass http://zapdev_backend;
+            expires 365d;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # Public assets caching
+        location /public {
+            proxy_pass http://zapdev_backend;
+            expires 30d;
+            add_header Cache-Control "public";
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Enable Configuration">
+    ```bash
+    # Create symbolic link
+    sudo ln -s /etc/nginx/sites-available/zapdev /etc/nginx/sites-enabled/
+    
+    # Test configuration
+    sudo nginx -t
+    
+    # Reload Nginx
+    sudo systemctl reload nginx
+    ```
+  </Step>
+
+  <Step title="Configure SSL with Let's Encrypt">
+    ```bash
+    # Obtain certificate
+    sudo certbot --nginx -d your-domain.com -d www.your-domain.com
+    
+    # Follow prompts to:
+    # 1. Enter email
+    # 2. Agree to terms
+    # 3. Choose redirect option (recommended)
+    
+    # Test auto-renewal
+    sudo certbot renew --dry-run
+    ```
+  </Step>
+</Steps>
+
+## Required Backend Setup
+
+Before your self-hosted deployment works:
+
+<Steps>
+  <Step title="Deploy Convex Backend">
+    ```bash
+    # Install Convex CLI
+    bun add -g convex
+    
+    # Login
+    bunx convex login
+    
+    # Deploy
+    bunx convex deploy
+    ```
+    
+    Copy the `NEXT_PUBLIC_CONVEX_URL` to your `.env.production` file.
+  </Step>
+
+  <Step title="Build E2B Template">
+    ```bash
+    # Install E2B CLI
+    bun add -g @e2b/cli
+    
+    # Login
+    e2b auth login
+    
+    # Build template
+    cd sandbox-templates/nextjs
+    e2b template build --name zapdev-production --cmd "/compile_page.sh"
+    ```
+    
+    Update the template name in `src/inngest/functions.ts` before building.
+  </Step>
+
+  <Step title="Sync Inngest Cloud">
+    - Go to [Inngest Dashboard](https://app.inngest.com)
+    - Click "Sync App"
+    - Add URL: `https://your-domain.com/api/inngest`
+    - Click "Sync"
+  </Step>
+
+  <Step title="Configure Webhooks">
+    Update webhook URLs:
+    
+    **Clerk**: Dashboard → Webhooks → `https://your-domain.com/api/webhooks/clerk`
+    
+    **Polar.sh**: Dashboard → Webhooks → `https://your-domain.com/api/webhooks/polar`
+  </Step>
+</Steps>
+
+## Firewall Configuration
+
+<Steps>
+  <Step title="Enable UFW">
+    ```bash
+    sudo ufw allow OpenSSH
+    sudo ufw allow 'Nginx Full'
+    sudo ufw enable
+    ```
+  </Step>
+
+  <Step title="Verify Rules">
+    ```bash
+    sudo ufw status
+    ```
+    
+    Should show:
+    - 22/tcp (SSH)
+    - 80/tcp (HTTP)
+    - 443/tcp (HTTPS)
+  </Step>
+</Steps>
+
+## Monitoring and Maintenance
+
+### Application Monitoring
+
+```bash
+# PM2 monitoring
+pm2 monit
+
+# Check logs
+pm2 logs zapdev --lines 100
+
+# Restart application
+pm2 restart zapdev
+
+# View process info
+pm2 info zapdev
+```
+
+### System Monitoring
+
+```bash
+# Disk usage
+df -h
+
+# Memory usage
+free -h
+
+# CPU usage
+top
+
+# Network connections
+ss -tulpn
+```
+
+### Log Management
+
+```bash
+# Nginx logs
+sudo tail -f /var/log/nginx/zapdev.access.log
+sudo tail -f /var/log/nginx/zapdev.error.log
+
+# Application logs
+cd ~/zapdev
+tail -f logs/combined.log
+
+# Rotate logs with logrotate
+sudo nano /etc/logrotate.d/zapdev
+```
+
+Add:
+
+```
+/home/zapdev/zapdev/logs/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 zapdev zapdev
+    sharedscripts
+    postrotate
+        pm2 reloadLogs
+    endscript
+}
+```
+
+## Automated Backups
+
+### Backup Script
+
+```bash
+# Create backup script
+nano ~/backup-zapdev.sh
+```
+
+```bash
+#!/bin/bash
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="$HOME/backups"
+APP_DIR="$HOME/zapdev"
+
+# Create backup directory
+mkdir -p $BACKUP_DIR
+
+# Backup application files
+tar -czf $BACKUP_DIR/zapdev_$DATE.tar.gz \
+    -C $APP_DIR \
+    --exclude=node_modules \
+    --exclude=.next \
+    --exclude=logs \
+    .
+
+# Keep only last 7 backups
+ls -t $BACKUP_DIR/zapdev_*.tar.gz | tail -n +8 | xargs rm -f
+
+echo "Backup completed: zapdev_$DATE.tar.gz"
+```
+
+```bash
+# Make executable
+chmod +x ~/backup-zapdev.sh
+
+# Add to crontab (daily at 2 AM)
+crontab -e
+```
+
+Add:
+```
+0 2 * * * /home/zapdev/backup-zapdev.sh >> /home/zapdev/backup.log 2>&1
+```
+
+## Updating Your Deployment
+
+<Steps>
+  <Step title="Pull Latest Changes">
+    ```bash
+    cd ~/zapdev
+    git pull origin main
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    ```bash
+    bun install
+    ```
+  </Step>
+
+  <Step title="Rebuild Application">
+    ```bash
+    bun run build
+    ```
+  </Step>
+
+  <Step title="Restart with PM2">
+    ```bash
+    pm2 restart zapdev
+    
+    # Or reload with zero downtime
+    pm2 reload zapdev
+    ```
+  </Step>
+
+  <Step title="Update Convex (if schema changed)">
+    ```bash
+    bunx convex deploy
+    ```
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Application Won't Start
+
+**Check PM2 logs**:
+```bash
+pm2 logs zapdev --err
+```
+
+**Common issues**:
+- Missing environment variables in `.env.production`
+- Port 3000 already in use
+- Invalid Convex URL
+
+### 502 Bad Gateway
+
+**Check if app is running**:
+```bash
+pm2 status
+curl http://localhost:3000
+```
+
+**Check Nginx error logs**:
+```bash
+sudo tail -f /var/log/nginx/zapdev.error.log
+```
+
+### SSL Certificate Issues
+
+**Renew certificate manually**:
+```bash
+sudo certbot renew --force-renewal
+sudo systemctl reload nginx
+```
+
+### High Memory Usage
+
+**Restart PM2 process**:
+```bash
+pm2 restart zapdev
+```
+
+**Reduce PM2 instances**:
+```javascript
+// ecosystem.config.js
+instances: 2, // Instead of 'max'
+```
+
+## Security Best Practices
+
+<Steps>
+  <Step title="Keep System Updated">
+    ```bash
+    sudo apt update && sudo apt upgrade -y
+    ```
+  </Step>
+
+  <Step title="Configure SSH Key Auth">
+    ```bash
+    # Disable password authentication
+    sudo nano /etc/ssh/sshd_config
+    # Set: PasswordAuthentication no
+    sudo systemctl restart sshd
+    ```
+  </Step>
+
+  <Step title="Install Fail2Ban">
+    ```bash
+    sudo apt install fail2ban -y
+    sudo systemctl enable fail2ban
+    sudo systemctl start fail2ban
+    ```
+  </Step>
+
+  <Step title="Enable Automatic Security Updates">
+    ```bash
+    sudo apt install unattended-upgrades -y
+    sudo dpkg-reconfigure -plow unattended-upgrades
+    ```
+  </Step>
+</Steps>
+
+## Production Checklist
+
+- [ ] Server provisioned with adequate resources
+- [ ] Domain DNS configured to point to server IP
+- [ ] SSL certificate installed and auto-renewal enabled
+- [ ] Firewall configured (UFW or similar)
+- [ ] PM2 configured with auto-restart on boot
+- [ ] Nginx reverse proxy configured
+- [ ] All environment variables set in `.env.production`
+- [ ] Convex backend deployed
+- [ ] E2B template built with production name
+- [ ] Inngest Cloud synced
+- [ ] Webhooks configured (Clerk, Polar.sh)
+- [ ] Automated backups configured
+- [ ] Monitoring set up (PM2, logs)
+- [ ] Test user registration and AI generation
+- [ ] Fail2Ban installed for SSH protection
+- [ ] Automatic security updates enabled
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Vercel Deployment" icon="triangle" href="/deployment/vercel">
+    Simpler deployment with managed infrastructure
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Containerized deployment for flexibility
+  </Card>
+</CardGroup>

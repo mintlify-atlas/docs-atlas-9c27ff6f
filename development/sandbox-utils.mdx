@@ -1,0 +1,531 @@
+---
+title: "E2B Sandbox Utilities"
+description: "Python-optimized sandbox utilities for E2B environments, including batch file operations, dev server management, and build verification"
+---
+
+# E2B Sandbox Utilities
+
+ZapDev's E2B sandbox utilities provide Python-optimized file operations and dev server management for isolated code execution environments. These utilities minimize API latency through batch operations and enable reliable build verification.
+
+<Note>
+**Important**: The current ZapDev architecture has migrated to **WebContainer-based in-memory execution** for most workflows. E2B sandboxes were historically used but are now deprecated in favor of browser-based WebContainers. This documentation covers the legacy E2B approach for reference.
+</Note>
+
+## Sandbox Architecture Overview
+
+### Template-Based Sandboxes
+
+E2B sandboxes are pre-built Docker images with framework dependencies installed:
+
+```typescript
+// sandbox-templates/nextjs/template.ts
+import { Template } from 'e2b'
+
+export const template = Template()
+  .fromImage('node:21-slim')
+  .setUser('root')
+  .setWorkdir('/')
+  .runCmd('groupadd -r user && useradd -r -g user user && mkdir -p /home/user && chown -R user:user /home/user')
+  .runCmd('apt-get update && apt-get install -y curl sudo && apt-get clean && rm -rf /var/lib/apt/lists/*')
+  .runCmd('npm install -g npm@latest pnpm@latest')
+  .copy('compile_page.sh', '/compile_page.sh')
+  .runCmd('chmod +x /compile_page.sh')
+  .setWorkdir('/home/user')
+  .runCmd('sudo -u user npx --yes create-next-app@15.3.3 . --yes')
+  .runCmd('sudo -u user npx --yes shadcn@2.6.3 init --yes -b neutral --force')
+  .runCmd('sudo -u user npx --yes shadcn@2.6.3 add --all --yes')
+  .setUser('user')
+  .setStartCmd('sudo /compile_page.sh', 'sleep 20')
+```
+
+**Key Features**:
+- **Base Image**: Node.js 21 slim for minimal footprint
+- **Pre-installed Dependencies**: Next.js 15.3.3, Shadcn UI 2.6.3 with all components
+- **User Isolation**: Non-root `user` account for security
+- **Start Command**: Automatic dev server compilation on sandbox boot
+
+### Available Sandbox Templates
+
+ZapDev provides templates for all supported frameworks:
+
+| Framework | Template Path | Port | Key Dependencies |
+|-----------|---------------|------|------------------|
+| **Next.js** | `sandbox-templates/nextjs/` | 3000 | Shadcn UI, Tailwind CSS |
+| **Angular** | `sandbox-templates/angular/` | 4200 | Angular Material, Tailwind CSS |
+| **React** | `sandbox-templates/react/` | 5173 | Chakra UI, Vite, Tailwind CSS |
+| **Vue** | `sandbox-templates/vue/` | 5173 | Vuetify, Vite, Tailwind CSS |
+| **Svelte** | `sandbox-templates/svelte/` | 5173 | DaisyUI, SvelteKit, Tailwind CSS |
+
+## Dev Server Pre-Warming
+
+### Compile Script
+
+E2B sandboxes use a bash script to ensure the dev server is ready before AI generation:
+
+```bash
+#!/bin/bash
+# sandbox-templates/nextjs/compile_page.sh
+
+# This script runs during building the sandbox template
+# and makes sure the Next.js app is (1) running and (2) the `/` page is compiled
+function ping_server() {
+	counter=0
+	response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000")
+	while [[ ${response} -ne 200 ]]; do
+	  let counter++
+	  if  (( counter % 20 == 0 )); then
+        echo "Waiting for server to start..."
+        sleep 0.1
+      fi
+
+	  response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000")
+	done
+}
+
+ping_server &
+cd /home/user && npx next dev --turbopack
+```
+
+**How It Works**:
+1. **Parallel Ping**: `ping_server` function runs in background, polling localhost:3000
+2. **Dev Server Launch**: `next dev --turbopack` starts the Next.js dev server
+3. **Compilation Wait**: Script blocks until HTTP 200 response (page compiled)
+4. **Ready State**: Sandbox is marked ready only after successful ping
+
+### Framework-Specific Port Mappings
+
+Each framework requires correct port configuration:
+
+```typescript
+// From AGENTS.md conventions
+const FRAMEWORK_PORTS: Record<Framework, number> = {
+  nextjs: 3000,
+  angular: 4200,
+  react: 5173,
+  vue: 5173,
+  svelte: 5173,
+};
+```
+
+**Anti-Pattern**: Never bypass framework-specific port mappings or assume port 3000 for all frameworks.
+
+## Python-Optimized File Operations
+
+### Batch Write Operations
+
+The AGENTS.md documentation emphasizes Python scripts for batch operations to avoid O(N) API latency:
+
+**Problem**: Serial `sandbox.files.write` calls result in N × network_latency:
+
+```typescript
+// ❌ ANTI-PATTERN: Serial writes (high latency)
+for (const [path, content] of Object.entries(files)) {
+  await sandbox.files.write(path, content); // N API calls
+}
+```
+
+**Solution**: Use Python script inside sandbox for batch processing:
+
+```typescript
+// ✅ CORRECT: Batch write via Python
+const writeFilesBatch = async (
+  sandbox: Sandbox,
+  files: Record<string, string>
+) => {
+  const pythonScript = `
+import json
+import os
+
+files = json.loads('''${JSON.stringify(files).replace(/'/g, "\\'")}}''')
+
+for path, content in files.items():
+    dir_path = os.path.dirname(path)
+    if dir_path:
+        os.makedirs(dir_path, exist_ok=True)
+    with open(path, 'w') as f:
+        f.write(content)
+
+print(f"Wrote {len(files)} files")
+`;
+
+  const result = await sandbox.commands.run({
+    cmd: 'python3',
+    args: ['-c', pythonScript],
+  });
+
+  return result.stdout;
+};
+```
+
+**Performance Improvement**: 1 API call instead of N, reducing latency by ~100-500ms per file.
+
+### Batch Read Operations
+
+Similarly, reading multiple files benefits from Python optimization:
+
+```typescript
+// ✅ Batch read via Python
+const readFilesBatch = async (
+  sandbox: Sandbox,
+  paths: string[]
+): Promise<Record<string, string>> => {
+  const pythonScript = `
+import json
+import os
+
+paths = json.loads('''${JSON.stringify(paths).replace(/'/g, "\\'")}}''')
+results = {}
+
+for path in paths:
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            results[path] = f.read()
+    else:
+        results[path] = None
+
+print(json.dumps(results))
+`;
+
+  const result = await sandbox.commands.run({
+    cmd: 'python3',
+    args: ['-c', pythonScript],
+  });
+
+  return JSON.parse(result.stdout);
+};
+```
+
+## Build Verification
+
+### Lint and Build Checks
+
+Before marking code as complete, the sandbox utilities run validation:
+
+```typescript
+// Build verification workflow
+const verifyBuild = async (sandbox: Sandbox, framework: Framework) => {
+  // Step 1: Run linting
+  const lintResult = await sandbox.commands.run({
+    cmd: 'npm',
+    args: ['run', 'lint'],
+    cwd: '/home/user',
+  });
+
+  if (lintResult.exitCode !== 0) {
+    console.error('Lint errors:', lintResult.stderr);
+    return { success: false, errors: parseLintErrors(lintResult.stderr) };
+  }
+
+  // Step 2: Run build (TypeScript check)
+  const buildResult = await sandbox.commands.run({
+    cmd: 'npm',
+    args: ['run', 'build'],
+    cwd: '/home/user',
+  });
+
+  if (buildResult.exitCode !== 0) {
+    console.error('Build errors:', buildResult.stderr);
+    return { success: false, errors: parseBuildErrors(buildResult.stderr) };
+  }
+
+  return { success: true, errors: [] };
+};
+```
+
+**Validation Rules** (from shared.ts):
+- ✅ `npm run lint` is **MANDATORY** before task completion
+- ✅ `npm run build` verifies TypeScript and bundler errors
+- ❌ **NEVER** complete tasks with known build errors
+- ❌ **NEVER** skip validation to save time
+
+### Auto-Fix Logic
+
+The system implements a single-attempt retry loop:
+
+```typescript
+// Auto-fix workflow (conceptual)
+const generateWithAutoFix = async (
+  sandbox: Sandbox,
+  prompt: string,
+  framework: Framework
+) => {
+  // Initial generation
+  const files = await generateCode(prompt, framework);
+  await writeFilesBatch(sandbox, files);
+
+  // Verify build
+  const verification = await verifyBuild(sandbox, framework);
+
+  if (!verification.success) {
+    console.log('Build failed, attempting auto-fix...');
+    
+    // Single retry with error context
+    const fixPrompt = `
+The following build errors occurred:
+${verification.errors.join('\n')}
+
+Please fix these errors in the code.
+`;
+    
+    const fixedFiles = await generateCode(fixPrompt, framework);
+    await writeFilesBatch(sandbox, fixedFiles);
+    
+    // Re-verify (no additional retries)
+    const retryVerification = await verifyBuild(sandbox, framework);
+    return retryVerification.success;
+  }
+
+  return true;
+};
+```
+
+**Important Limits**:
+- **Maximum Retries**: 1 (single auto-fix attempt)
+- **Error Feedback**: Full build/lint output provided to model
+- **No Infinite Loops**: System fails gracefully after 2 total attempts
+
+## Sandbox Lifecycle Management
+
+### Sandbox Creation
+
+```typescript
+import { Sandbox } from 'e2b';
+
+const createSandbox = async (framework: Framework) => {
+  const templateId = getTemplateId(framework);
+  
+  const sandbox = await Sandbox.create({
+    template: templateId,
+    timeout: 600_000, // 10 minutes
+  });
+
+  console.log(`Sandbox created: ${sandbox.id}`);
+  console.log(`URL: ${sandbox.getURL()}`);
+
+  return sandbox;
+};
+
+const getTemplateId = (framework: Framework): string => {
+  const templates: Record<Framework, string> = {
+    nextjs: process.env.E2B_NEXTJS_TEMPLATE_ID!,
+    angular: process.env.E2B_ANGULAR_TEMPLATE_ID!,
+    react: process.env.E2B_REACT_TEMPLATE_ID!,
+    vue: process.env.E2B_VUE_TEMPLATE_ID!,
+    svelte: process.env.E2B_SVELTE_TEMPLATE_ID!,
+  };
+  return templates[framework];
+};
+```
+
+### Dev Server Management
+
+```typescript
+// Start dev server with ping loop
+const startDevServer = async (
+  sandbox: Sandbox,
+  framework: Framework,
+  port: number
+) => {
+  const startCmd = getDevCommand(framework);
+  
+  // Start server in background
+  const serverProcess = await sandbox.commands.run({
+    cmd: startCmd,
+    background: true,
+    cwd: '/home/user',
+  });
+
+  // Ping until ready
+  const maxAttempts = 60;
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
+    try {
+      const response = await fetch(`http://localhost:${port}`);
+      if (response.ok) {
+        console.log(`Dev server ready on port ${port}`);
+        return serverProcess;
+      }
+    } catch {
+      // Server not ready yet
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    attempts++;
+  }
+  
+  throw new Error(`Dev server failed to start after ${maxAttempts} attempts`);
+};
+
+const getDevCommand = (framework: Framework): string => {
+  const commands: Record<Framework, string> = {
+    nextjs: 'npx next dev --turbopack',
+    angular: 'ng serve',
+    react: 'npm run dev',
+    vue: 'npm run dev',
+    svelte: 'npm run dev',
+  };
+  return commands[framework];
+};
+```
+
+**Critical Rules**:
+- ❌ **NEVER** assume dev server is ready immediately
+- ✅ **ALWAYS** use ping loop with `startDevServer`
+- ❌ **NEVER** bypass framework-specific port mappings
+
+### Sandbox Cleanup
+
+```typescript
+const cleanupSandbox = async (sandbox: Sandbox) => {
+  try {
+    await sandbox.kill();
+    console.log(`Sandbox ${sandbox.id} terminated`);
+  } catch (error) {
+    console.error('Sandbox cleanup error:', error);
+  }
+};
+
+// Use try-finally for guaranteed cleanup
+const withSandbox = async <T>(
+  framework: Framework,
+  work: (sandbox: Sandbox) => Promise<T>
+): Promise<T> => {
+  const sandbox = await createSandbox(framework);
+  
+  try {
+    return await work(sandbox);
+  } finally {
+    await cleanupSandbox(sandbox);
+  }
+};
+```
+
+## Environment Variables
+
+E2B sandboxes require API keys and template IDs:
+
+```bash
+# .env.local
+E2B_API_KEY=your_e2b_api_key
+
+# Template IDs (built with `e2b template build`)
+E2B_NEXTJS_TEMPLATE_ID=nextjs-template-id
+E2B_ANGULAR_TEMPLATE_ID=angular-template-id
+E2B_REACT_TEMPLATE_ID=react-template-id
+E2B_VUE_TEMPLATE_ID=vue-template-id
+E2B_SVELTE_TEMPLATE_ID=svelte-template-id
+```
+
+## Building Custom Templates
+
+### Build Process
+
+```bash
+# Navigate to template directory
+cd sandbox-templates/nextjs
+
+# Build template (requires Docker)
+e2b template build \
+  --name zapdev-nextjs \
+  --cmd "/compile_page.sh"
+
+# Output: template ID for use in E2B_NEXTJS_TEMPLATE_ID
+```
+
+### Template Build Scripts
+
+ZapDev provides development and production build configurations:
+
+**Development Build** (`build.dev.ts`):
+- Optimized for fast iteration
+- Includes dev dependencies
+- Enables hot reload
+
+**Production Build** (`build.prod.ts`):
+- Optimized for runtime performance
+- Excludes dev dependencies
+- Pre-compiles all pages
+
+## Migration to WebContainer
+
+<Warning>
+**Current Architecture**: ZapDev has migrated from E2B sandboxes to **WebContainer-based in-memory execution** for improved performance and reduced infrastructure costs.
+</Warning>
+
+### Why WebContainer?
+
+1. **Browser-Native**: Runs entirely in the browser, no server-side sandboxes
+2. **Lower Latency**: Eliminates sandbox creation time (~5-10 seconds)
+3. **Cost Efficiency**: No per-sandbox infrastructure costs
+4. **Better UX**: Instant preview updates without network round trips
+
+### WebContainer Workflow
+
+```typescript
+// Modern approach (WebContainer)
+const files: Record<string, string> = {};
+
+// Files are stored in-memory
+const tools = buildInMemoryTools(files);
+
+// Agent writes directly to memory
+await agent.run(prompt, tools);
+
+// Files are sent to browser for WebContainer preview
+return {
+  files,
+  sandboxUrl: "webcontainer://local",
+};
+```
+
+Compare to legacy E2B approach:
+
+```typescript
+// Legacy approach (E2B)
+const sandbox = await Sandbox.create({ template: 'nextjs' });
+await writeFilesBatch(sandbox, files);
+await startDevServer(sandbox, 'nextjs', 3000);
+// ... wait for compilation
+return {
+  files,
+  sandboxUrl: sandbox.getURL(),
+};
+await sandbox.kill();
+```
+
+**Performance Comparison**:
+
+| Metric | E2B Sandbox | WebContainer |
+|--------|-------------|-------------|
+| **Startup Time** | 5-10 seconds | Less than 100ms |
+| **File Write Latency** | 50-200ms/file | Less than 1ms |
+| **Preview Availability** | After dev server ready | Immediate |
+| **Cost per Session** | $0.01-0.05 | $0 |
+
+## Best Practices
+
+### DO
+
+✅ Use Python scripts for batch file operations (writeFilesBatch)
+✅ Always verify builds with `npm run lint` and `npm run build`
+✅ Implement ping loops before assuming dev server is ready
+✅ Use framework-specific port mappings
+✅ Clean up sandboxes in finally blocks
+✅ Consider WebContainer for new features (modern approach)
+
+### DON'T
+
+❌ Never use serial `sandbox.files.write` for multiple files
+❌ Don't skip build verification to save time
+❌ Don't assume port 3000 for all frameworks
+❌ Don't start dev servers without ping loops
+❌ Don't leave sandboxes running after work completes
+❌ Don't use E2B for new features (prefer WebContainer)
+
+## Related Documentation
+
+- [Agent Orchestration](/development/agent-orchestration) - AI agent workflows using sandboxes
+- [Framework Prompts](/development/prompts) - Framework-specific instructions
+- [Architecture](/development/architecture) - Overall system design
+- [Tech Stack](/development/tech-stack) - E2B and WebContainer details

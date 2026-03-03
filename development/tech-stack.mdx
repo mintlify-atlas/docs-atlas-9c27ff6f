@@ -1,0 +1,822 @@
+---
+title: Technology Stack
+description: Detailed breakdown of ZapDev's technology stack, dependencies, and integration patterns
+---
+
+# Technology Stack
+
+ZapDev leverages modern web technologies to deliver a real-time, AI-powered development platform. This page provides a comprehensive overview of all technologies, their roles, and integration patterns.
+
+## Core Framework
+
+### Next.js 15
+
+**Version**: `^16.1.1` (see `package.json:84`)
+
+**Role**: Full-stack React framework providing the foundation for ZapDev's frontend and API layer.
+
+**Key Features Used**:
+- **App Router**: File-based routing with nested layouts
+- **React Server Components**: Default rendering for improved performance
+- **Server Actions**: Type-safe server mutations
+- **API Routes**: RESTful endpoints for external integrations
+- **Turbopack**: Next-generation bundler for faster builds
+- **Image Optimization**: Automatic image optimization and lazy loading
+
+**Configuration**:
+```bash
+# Development with Turbopack
+bun run dev  # Runs: next dev --turbopack
+
+# Production build
+bun run build  # Runs: next build --turbopack
+```
+
+### React 19
+
+**Version**: `^19.2.3` (see `package.json:89`)
+
+**Role**: UI library for building interactive components.
+
+**Notable Features**:
+- **Concurrent Rendering**: Improved responsiveness
+- **Automatic Batching**: Optimized state updates
+- **Suspense**: Declarative loading states
+- **Transitions**: Smooth UI updates
+
+## Database & Backend
+
+### Convex
+
+**Version**: `^1.31.2` (see `package.json:71`)
+
+**Role**: Real-time database and backend-as-a-service.
+
+**Why Convex?**
+- **Reactive Queries**: UI automatically updates when data changes
+- **Type Safety**: Generated TypeScript types for all tables and queries
+- **Built-in Auth**: Seamless Clerk integration
+- **Serverless**: No database provisioning or scaling required
+- **ACID Transactions**: Reliable data consistency
+
+**Tables** (see `convex/schema.ts:92`):
+- `projects` - User projects (framework, settings)
+- `messages` - Conversation history
+- `fragments` - Generated code snapshots
+- `fragmentDrafts` - In-progress modifications
+- `usage` - Credit tracking and rate limits
+- `subscriptions` - Billing and plans
+- `agentRuns` - Background job tracking
+- `imports` - Figma/GitHub import status
+- `oauthConnections` - OAuth tokens
+
+**Commands**:
+```bash
+bun run convex:dev      # Start Convex dev server
+bun run convex:deploy   # Deploy to production
+```
+
+## AI & Code Generation
+
+### Vercel AI SDK
+
+**Package**: `ai` v`^6.0.5` (see `package.json:65`)
+
+**Role**: Unified interface for AI model interactions.
+
+**Features**:
+- Streaming text generation
+- Tool calling (function execution)
+- Multi-provider support (OpenAI, Anthropic, etc.)
+- Type-safe tool definitions
+
+### AI Providers
+
+#### OpenRouter (via AI SDK)
+
+**Packages**: `@ai-sdk/openai` v`^3.0.2` (see `package.json:16`)
+
+**Role**: Primary AI gateway for model access.
+
+**Supported Models**:
+- GPT-4 Turbo (OpenAI)
+- Claude 3.5 Sonnet (Anthropic)
+- Gemini Pro (Google)
+- DeepSeek V2
+- Grok (xAI)
+
+**Configuration**:
+```bash
+OPENROUTER_API_KEY="..."
+OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
+```
+
+#### Cerebras
+
+**Package**: `@ai-sdk/cerebras` v`^2.0.5` (see `package.json:15`)
+
+**Role**: Fast inference for framework detection and prompt enhancement.
+
+### E2B Code Interpreter
+
+**Package**: `e2b` v`^2.13.0` (see `package.json:75`)
+
+**Role**: Secure, isolated code execution environments.
+
+**Sandbox Types**:
+- **Next.js**: Pre-configured Next.js 15 template
+- **Angular**: Angular 19 with Material Design
+- **React**: Vite + React 18 + Chakra UI
+- **Vue**: Vue 3 + Vuetify
+- **Svelte**: SvelteKit + DaisyUI
+
+**Key Features**:
+- Python-optimized file operations
+- Pre-warmed dev servers
+- Network isolation
+- Resource limits (CPU, memory)
+- Automatic cleanup
+
+**Template Structure** (see `sandbox-templates/nextjs/`):
+```
+nextjs/
+├── e2b.Dockerfile      # Base image configuration
+├── package.json        # Dependencies
+├── compile_page.sh     # Pre-warming script
+└── next.config.mjs     # Next.js config
+```
+
+## Background Jobs
+
+### Inngest
+
+**Package**: `inngest` v`^3.52.3` (see `package.json:79`)
+
+**Role**: Event-driven background job orchestration.
+
+**Functions** (see `src/inngest/functions/`):
+- **code-agent.ts**: Long-running code generation
+- **figma-import.ts**: Design file processing
+- **webcontainer-run.ts**: Browser-based execution
+
+**Event Types** (see `src/inngest/client.ts:51`):
+```typescript
+"agent/code-agent-kit.run"      // Full project generation
+"agent/fix-errors.run"          // Error correction
+"agent/figma-import.run"        // Figma → code
+"agent/code-webcontainer.run"   // WebContainer execution
+```
+
+**Middleware**:
+- **Realtime**: `@inngest/realtime` v`^0.4.6` for streaming updates
+- **Agent Kit**: `@inngest/agent-kit` v`^0.13.2` for AI workflows
+
+**Development**:
+```bash
+# Local dev server (http://localhost:8288)
+npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+```
+
+### WebContainer API
+
+**Package**: `@webcontainer/api` v`^1.6.1` (see `package.json:64`)
+
+**Role**: Browser-based Node.js runtime for code execution.
+
+**Use Cases**:
+- Client-side preview generation
+- Lightweight task execution
+- Alternative to E2B sandboxes
+
+## Type-Safe API
+
+### tRPC
+
+**Packages**:
+- `@trpc/server` v`^11.8.1` (see `package.json:59`)
+- `@trpc/client` v`^11.8.1` (see `package.json:58`)
+- `@trpc/tanstack-react-query` v`^11.8.1` (see `package.json:60`)
+
+**Role**: End-to-end type safety between client and server.
+
+**Architecture** (see `src/trpc/routers/_app.ts:7`):
+```typescript
+appRouter = {
+  usage: usageRouter,       // src/modules/usage/server/procedures.ts
+  messages: messagesRouter, // src/modules/messages/server/procedures.ts
+  projects: projectsRouter  // src/modules/projects/server/procedures.ts
+}
+```
+
+**Client Usage**:
+```typescript
+import { api } from '@/trpc/client';
+
+// Fully typed, auto-complete
+const { data } = api.projects.list.useQuery();
+const create = api.projects.create.useMutation();
+```
+
+**Benefits**:
+- No code generation required
+- Automatic type inference
+- Runtime validation with Zod
+- Optimistic updates
+
+### Zod
+
+**Package**: `zod` v`^4.2.1` (see `package.json:106`)
+
+**Role**: Schema validation for APIs and forms.
+
+**Usage**:
+```typescript
+import { z } from 'zod';
+
+const schema = z.object({
+  name: z.string().min(1),
+  framework: frameworkEnum,
+});
+
+// tRPC integration
+export const create = protectedProcedure
+  .input(schema)
+  .mutation(async ({ input, ctx }) => { ... });
+```
+
+## Authentication
+
+### Clerk
+
+**Packages**:
+- `@clerk/nextjs` v`^6.36.5` (see `package.json:18`)
+- `@clerk/backend` v`^2.29.0` (see `package.json:17`)
+
+**Role**: User authentication and session management.
+
+**Features**:
+- Social OAuth (Google, GitHub, etc.)
+- Email/password authentication
+- Magic links
+- JWT token issuance
+- User management dashboard
+
+**Integration Points**:
+- **Frontend**: `ClerkProvider` wraps app
+- **Middleware**: Route protection in `middleware.ts`
+- **Backend**: JWT verification in API routes
+- **Convex**: Token-based auth (see `convex/auth.config.ts:1`)
+
+**Environment Variables**:
+```bash
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="..."
+CLERK_SECRET_KEY="..."
+NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+```
+
+## Payments & Subscriptions
+
+### Polar
+
+**Package**: `@polar-sh/sdk` v`^0.41.5` (see `package.json:28`)
+
+**Role**: Subscription billing and customer management.
+
+**Features**:
+- Subscription plans (free, pro, unlimited)
+- Customer portal
+- Webhook events
+- Usage-based billing
+
+**Integration** (see `convex/polar.ts`, `convex/subscriptions.ts`):
+- Webhook handlers in `convex/http.ts:1`
+- Subscription status tracking
+- Credit allocation based on plan
+
+**Plans**:
+- **Free**: 5 generations/day
+- **Pro**: 100 generations/day
+- **Unlimited**: No limits
+
+### Stripe (Alternative)
+
+**Package**: `stripe` v`^20.1.0` (see `package.json:99`)
+
+**Role**: Payment processing infrastructure (optional).
+
+## UI Components
+
+### Shadcn/ui
+
+**Architecture**: Copy/paste components (not a library)
+
+**Base**: Radix UI primitives + Tailwind CSS
+
+**Components** (see `src/components/ui/`):
+- Forms: Button, Input, Select, Checkbox
+- Overlays: Dialog, Popover, Tooltip
+- Feedback: Toast, Alert, Progress
+- Navigation: Tabs, Accordion, Dropdown Menu
+- Data: Table, Card, Separator
+
+**Customization**:
+```typescript
+// src/components/ui/button.tsx
+import { cva } from 'class-variance-authority';
+
+const buttonVariants = cva(
+  'inline-flex items-center justify-center...',
+  {
+    variants: {
+      variant: { default: '...', destructive: '...' },
+      size: { default: '...', sm: '...', lg: '...' },
+    },
+  }
+);
+```
+
+### Radix UI
+
+**Packages**: `@radix-ui/react-*` (29 packages, see `package.json:29-54`)
+
+**Role**: Unstyled, accessible UI primitives.
+
+**Benefits**:
+- WAI-ARIA compliant
+- Keyboard navigation
+- Focus management
+- Screen reader support
+
+### Tailwind CSS v4
+
+**Packages**:
+- `tailwindcss` v`^4.1.18` (see `package.json:116`)
+- `@tailwindcss/postcss` v`^4.1.18` (see `package.json:110`)
+
+**Role**: Utility-first CSS framework.
+
+**Configuration**: `tailwind.config.ts`
+
+**Features**:
+- JIT (Just-in-Time) compilation
+- Custom design tokens
+- Dark mode support
+- Responsive utilities
+
+### Lucide Icons
+
+**Package**: `lucide-react` v`^0.518.0` (see `package.json:83`)
+
+**Role**: Icon library with React components.
+
+**Usage**:
+```typescript
+import { Code, Sparkles, FileCode } from 'lucide-react';
+
+<Code className="h-4 w-4" />
+```
+
+## State Management
+
+### TanStack Query (React Query)
+
+**Package**: `@tanstack/react-query` v`^5.90.12` (see `package.json:57`)
+
+**Role**: Server state management and caching.
+
+**Configuration** (see `src/trpc/query-client.ts`):
+```typescript
+defaultOptions: {
+  queries: {
+    staleTime: 60 * 1000,  // 1 minute
+    refetchOnWindowFocus: false,
+  },
+  mutations: {
+    retry: false,
+  },
+}
+```
+
+**Features**:
+- Automatic background refetching
+- Optimistic updates
+- Infinite queries (pagination)
+- Query invalidation
+
+### React Hook Form
+
+**Package**: `react-hook-form` v`^7.69.0` (see `package.json:93`)
+
+**Role**: Form state management and validation.
+
+**Integration**: Works with Zod via `@hookform/resolvers` v`^3.10.0` (see `package.json:20`)
+
+**Usage**:
+```typescript
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const form = useForm({
+  resolver: zodResolver(schema),
+});
+```
+
+## Code Display
+
+### Prism.js
+
+**Packages**:
+- `prismjs` v`^1.30.0` (see `package.json:87`)
+- `@types/prismjs` v`^1.26.5` (see `package.json:112`)
+
+**Role**: Syntax highlighting for code preview.
+
+**Supported Languages**:
+- JavaScript/TypeScript
+- JSX/TSX
+- CSS/SCSS
+- HTML
+- JSON
+
+## File Management
+
+### UploadThing
+
+**Packages**:
+- `uploadthing` v`^7.7.4` (see `package.json:103`)
+- `@uploadthing/react` v`^7.3.3` (see `package.json:62`)
+
+**Role**: File upload infrastructure.
+
+**Use Cases**:
+- Figma file uploads
+- Image attachments
+- Project exports
+
+### JSZip
+
+**Package**: `jszip` v`^3.10.1` (see `package.json:82`)
+
+**Role**: Generate ZIP archives for project downloads.
+
+**Usage**:
+```typescript
+import JSZip from 'jszip';
+
+const zip = new JSZip();
+files.forEach(file => zip.file(file.path, file.content));
+const blob = await zip.generateAsync({ type: 'blob' });
+```
+
+## External Integrations
+
+### Figma API
+
+**Processing**: `src/lib/figma-processor.ts`
+
+**Flow**:
+1. User connects Figma via OAuth (`convex/oauth.ts`)
+2. Imports design file (`src/inngest/functions/figma-import.ts`)
+3. Processes nodes and styles
+4. Generates component code
+
+### GitHub API
+
+**Routes**:
+- `/api/import/github/auth` - OAuth initiation
+- `/api/import/github/callback` - OAuth callback
+- `/api/import/github/repos` - Repository listing
+- `/api/import/github/process` - Code import
+
+### Firecrawl
+
+**Package**: `firecrawl` v`^4.10.0` (see `package.json:78`)
+
+**Role**: Web scraping for inspiration and reference.
+
+**Features**:
+- JavaScript rendering
+- Content extraction
+- Markdown conversion
+
+### Brave Search
+
+**Implementation**: `src/lib/brave-search.ts`
+
+**Role**: Web search for code examples and documentation.
+
+## Development Tools
+
+### TypeScript
+
+**Version**: `^5.9.3` (see `package.json:120`)
+
+**Configuration**: Strict mode enabled in `tsconfig.json`
+
+**Compiler Options**:
+- `strict: true`
+- `noUncheckedIndexedAccess: true`
+- Path aliases: `@/*` → `src/*`
+
+### ESLint
+
+**Packages**:
+- `eslint` v`^9.39.2` (see `package.json:115`)
+- `eslint-config-next` v`^16.1.1` (see `package.json:77`)
+- `@eslint/eslintrc` v`^3.3.3` (see `package.json:109`)
+
+**Configuration**: Flat config format
+
+### Bun
+
+**Role**: JavaScript runtime and package manager.
+
+**Why Bun?**
+- 10-20x faster than npm
+- Native TypeScript support
+- Built-in test runner
+- ESM and CommonJS compatibility
+
+**Commands**:
+```bash
+bun install          # Install dependencies
+bun run dev          # Start dev server
+bun run build        # Production build
+bun run test         # Run tests
+```
+
+### Jest
+
+**Package**: `jest` v`^30.2.0` (see `package.json:81`)
+
+**Role**: Testing framework.
+
+**Configuration**: `tests/setup.ts`
+
+**Test Structure** (see `tests/`):
+```
+tests/
+├── mocks/           # Convex, E2B, Inngest mocks
+├── setup.ts         # Jest configuration
+└── *.test.ts        # Test files
+```
+
+**Notable Tests**:
+- `agent-workflow.test.ts` - E2E agent flows
+- `credit-system.test.ts` - Usage tracking
+- `frameworks.test.ts` - Framework detection
+- `security.test.ts` - Input validation
+
+## Monitoring & Analytics
+
+### Sentry
+
+**Package**: `@sentry/nextjs` v`^10.32.1` (see `package.json:55`)
+
+**Role**: Error tracking and performance monitoring.
+
+**Features**:
+- Automatic error capture
+- Release tracking
+- Performance traces
+- User context
+
+### Vercel Speed Insights
+
+**Package**: `@vercel/speed-insights` v`^1.3.1` (see `package.json:63`)
+
+**Role**: Real user monitoring (RUM).
+
+**Metrics**:
+- Core Web Vitals (LCP, FID, CLS)
+- Time to First Byte (TTFB)
+- First Contentful Paint (FCP)
+
+### Web Vitals
+
+**Package**: `web-vitals` v`^5.1.0` (see `package.json:105`)
+
+**Role**: Client-side performance measurement.
+
+**Usage**:
+```typescript
+import { onCLS, onFID, onLCP } from 'web-vitals';
+
+onCLS(console.log);
+onFID(console.log);
+onLCP(console.log);
+```
+
+## Utility Libraries
+
+### Class Variance Authority (CVA)
+
+**Package**: `class-variance-authority` v`^0.7.1` (see `package.json:66`)
+
+**Role**: Type-safe variant generation for components.
+
+**Usage**:
+```typescript
+const button = cva('base-styles', {
+  variants: {
+    intent: { primary: '...', secondary: '...' },
+    size: { small: '...', large: '...' },
+  },
+});
+```
+
+### clsx + tailwind-merge
+
+**Packages**:
+- `clsx` v`^2.1.1` (see `package.json:69`)
+- `tailwind-merge` v`^3.4.0` (see `package.json:102`)
+
+**Role**: Conditional class names with Tailwind deduplication.
+
+**Combined as `cn()` utility** (see `src/lib/utils.ts`):
+```typescript
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+```
+
+### date-fns
+
+**Package**: `date-fns` v`^4.1.0` (see `package.json:73`)
+
+**Role**: Date manipulation and formatting.
+
+**Usage**:
+```typescript
+import { formatDistanceToNow } from 'date-fns';
+
+formatDistanceToNow(message.createdAt, { addSuffix: true });
+// "2 hours ago"
+```
+
+### SuperJSON
+
+**Package**: `superjson` v`^2.2.6` (see `package.json:100`)
+
+**Role**: Serialize/deserialize complex types (Date, Map, Set).
+
+**Used in**: tRPC transformer for Date objects in API responses
+
+## Package Manager
+
+### Why Bun?
+
+**Migration**: Project migrated from npm/pnpm to Bun (see `AGENTS.md:53`)
+
+**Benefits**:
+- **Speed**: 10-20x faster installs
+- **Native TypeScript**: No transpilation needed
+- **Built-in Tools**: Test runner, bundler, transpiler
+- **Compatibility**: Works with npm packages
+
+**Lockfiles**:
+- Primary: `bun.lock`
+- Legacy: `pnpm-lock.yaml` (technical debt)
+
+**Anti-Pattern**:
+```bash
+# NEVER use npm/pnpm
+npm install  # ❌ Wrong
+pnpm add     # ❌ Wrong
+
+# ALWAYS use bun
+bun install  # ✅ Correct
+bun add      # ✅ Correct
+```
+
+## Version Matrix
+
+| Category | Package | Version |
+|----------|---------|--------|
+| **Runtime** | Node.js | 18+ |
+| **Package Manager** | Bun | Latest |
+| **Framework** | Next.js | 16.1.1 |
+| | React | 19.2.3 |
+| **Database** | Convex | 1.31.2 |
+| **AI** | Vercel AI SDK | 6.0.5 |
+| | E2B | 2.13.0 |
+| **Jobs** | Inngest | 3.52.3 |
+| | Agent Kit | 0.13.2 |
+| **API** | tRPC | 11.8.1 |
+| | Zod | 4.2.1 |
+| **Auth** | Clerk | 6.36.5 |
+| **UI** | Tailwind CSS | 4.1.18 |
+| | Radix UI | Latest |
+| | Lucide | 0.518.0 |
+| **State** | TanStack Query | 5.90.12 |
+| **Testing** | Jest | 30.2.0 |
+| **Monitoring** | Sentry | 10.32.1 |
+
+## Environment Variables Reference
+
+```bash
+# Database
+CONVEX_DEPLOYMENT="..."  # Auto-set by Convex
+
+# Next.js
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# AI Gateway
+OPENROUTER_API_KEY="..."
+OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
+
+# E2B Sandboxes
+E2B_API_KEY="..."
+
+# Clerk Auth
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="..."
+CLERK_SECRET_KEY="..."
+NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+
+# Inngest
+INNGEST_EVENT_KEY="..."
+INNGEST_SIGNING_KEY="..."
+
+# Polar Billing
+POLAR_ACCESS_TOKEN="..."
+NEXT_PUBLIC_POLAR_ORGANIZATION_ID="..."
+
+# Sentry (optional)
+SENTRY_AUTH_TOKEN="..."
+NEXT_PUBLIC_SENTRY_DSN="..."
+```
+
+## Dependency Management
+
+### Adding Dependencies
+
+```bash
+# Production dependency
+bun add package-name
+
+# Development dependency
+bun add -d package-name
+
+# Specific version
+bun add package-name@1.2.3
+```
+
+### Updating Dependencies
+
+```bash
+# Update all
+bun update
+
+# Update specific package
+bun update package-name
+
+# Check outdated
+bun outdated
+```
+
+### Security Audits
+
+```bash
+# Audit dependencies
+bun audit
+
+# Fix vulnerabilities
+bun audit --fix
+```
+
+## Build Optimization
+
+### Bundle Analysis
+
+```bash
+# Analyze bundle size
+NEXT_ANALYZE=true bun run build
+```
+
+### Code Splitting
+
+Automatic route-based splitting via Next.js:
+- Each route → separate chunk
+- Shared components → separate chunk
+- node_modules → vendor chunk
+
+### Tree Shaking
+
+Automatic dead code elimination for:
+- Unused exports
+- Unreachable code
+- Unused imports
+
+## References
+
+- [Bun Documentation](https://bun.sh/docs)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Convex Documentation](https://docs.convex.dev)
+- [tRPC Documentation](https://trpc.io/docs)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+- [Shadcn/ui Components](https://ui.shadcn.com)

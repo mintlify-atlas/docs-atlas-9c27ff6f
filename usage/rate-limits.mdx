@@ -1,0 +1,326 @@
+---
+title: "Rate Limits"
+description: "Understanding API rate limits and request throttling in ZapDev"
+---
+
+## Overview
+
+ZapDev implements rate limiting to ensure fair usage and maintain platform stability. Rate limits work independently from the credit system and apply to all API requests.
+
+## How Rate Limiting Works
+
+Rate limits use a **sliding window** algorithm that tracks requests within a configurable time window:
+
+```typescript
+interface RateLimitResult {
+  success: boolean;      // Whether the request is allowed
+  remaining: number;     // Requests remaining in window
+  resetTime: number;     // Timestamp when window resets
+  message?: string;      // Error message if rate limit exceeded
+}
+```
+
+## Rate Limit Configuration
+
+Rate limits are configured with two parameters:
+
+- **`limit`**: Maximum requests allowed in the window
+- **`windowMs`**: Window duration in milliseconds
+
+```typescript
+await checkRateLimit({
+  key: "user_123_generate",
+  limit: 10,               // 10 requests
+  windowMs: 60000          // per 60 seconds (1 minute)
+});
+```
+
+## Rate Limit Keys
+
+Rate limits are tracked using unique keys that identify the resource or action being rate-limited:
+
+### Key Generation Helpers
+
+```typescript
+const generateRateLimitKey = {
+  // Rate limit by user
+  byUser: (userId: string, action?: string) => 
+    action ? `user_${userId}_${action}` : `user_${userId}`,
+  
+  // Rate limit by IP address
+  byIP: (ip: string, action?: string) => 
+    action ? `ip_${ip}_${action}` : `ip_${ip}`,
+  
+  // Rate limit by endpoint
+  byEndpoint: (endpoint: string) => `endpoint_${endpoint}`,
+};
+```
+
+### Example Usage
+
+```typescript
+// Rate limit user's generation requests
+const key = generateRateLimitKey.byUser("user_123", "generate");
+// Result: "user_user_123_generate"
+
+// Rate limit by IP for authentication
+const key = generateRateLimitKey.byIP("192.168.1.1", "login");
+// Result: "ip_192.168.1.1_login"
+
+// Rate limit entire endpoint
+const key = generateRateLimitKey.byEndpoint("/api/projects");
+// Result: "endpoint_/api/projects"
+```
+
+## Checking Rate Limits
+
+When a request is made, the system checks the rate limit:
+
+### Within Limit
+
+If you haven't exceeded the limit:
+
+```typescript
+{
+  success: true,
+  remaining: 7,              // 7 requests left
+  resetTime: 1709481600000   // When window resets
+}
+```
+
+The request count is incremented and the request proceeds.
+
+### Limit Exceeded
+
+If you've exceeded the limit:
+
+```typescript
+{
+  success: false,
+  remaining: 0,
+  resetTime: 1709481600000,
+  message: "Rate limit exceeded. Try again in 45 seconds."
+}
+```
+
+The request is rejected until the window resets.
+
+## Sliding Window Behavior
+
+### New Window
+
+When you make your first request:
+
+1. A new rate limit record is created
+2. Window starts at current timestamp
+3. Count is set to 1
+4. Reset time is calculated as `now + windowMs`
+
+```typescript
+await ctx.db.insert("rateLimits", {
+  key: "user_123_generate",
+  count: 1,
+  windowStart: Date.now(),
+  limit: 10,
+  windowMs: 60000
+});
+```
+
+### Within Active Window
+
+While the window is active:
+
+1. Each request increments the count
+2. If count ≥ limit, requests are rejected
+3. Window start time remains unchanged
+4. Reset time stays the same
+
+```typescript
+if (existing.count >= existing.limit) {
+  const resetTime = existing.windowStart + existing.windowMs;
+  return {
+    success: false,
+    remaining: 0,
+    resetTime,
+    message: `Rate limit exceeded. Try again in ${Math.ceil((resetTime - now) / 1000)} seconds.`
+  };
+}
+```
+
+### Window Expiration
+
+When the window expires:
+
+1. The window is reset
+2. Count returns to 1 (current request)
+3. New window starts at current timestamp
+4. New reset time is calculated
+
+```typescript
+if (now - existing.windowStart >= existing.windowMs) {
+  await ctx.db.patch(existing._id, {
+    count: 1,
+    windowStart: now,
+    limit,
+    windowMs,
+  });
+}
+```
+
+<Note>
+Unlike fixed windows, the sliding window resets based on when you first made a request, providing more consistent rate limiting.
+</Note>
+
+## Rate Limit Storage
+
+Rate limits are stored in the Convex `rateLimits` table:
+
+```typescript
+rateLimits: defineTable({
+  key: v.string(),           // Unique identifier for the rate limit
+  count: v.number(),         // Current request count in window
+  windowStart: v.number(),   // Timestamp when window started
+  limit: v.number(),         // Maximum requests allowed
+  windowMs: v.number(),      // Window duration in milliseconds
+})
+  .index("by_key", ["key"])
+  .index("by_windowStart", ["windowStart"])
+```
+
+## Monitoring Rate Limits
+
+You can check the current status of a rate limit:
+
+```typescript
+const status = await getRateLimitStatus({ key: "user_123_generate" });
+
+if (status) {
+  console.log({
+    count: status.count,           // Requests made in current window
+    limit: status.limit,           // Maximum allowed
+    remaining: status.remaining,   // Requests left
+    resetTime: status.resetTime,   // When window resets
+  });
+} else {
+  console.log("No rate limit record exists yet");
+}
+```
+
+## Cleanup of Expired Limits
+
+Periodic cleanup removes expired rate limit records:
+
+```typescript
+const deletedCount = await resetExpiredRateLimits();
+// Returns number of expired records deleted
+```
+
+This maintenance function:
+- Finds all rate limits where `windowStart + windowMs < now`
+- Deletes expired records to save storage
+- Should be run periodically (e.g., via cron job)
+
+<Warning>
+Expired rate limits are cleaned up asynchronously. An expired but not yet deleted record will be automatically reset on the next request.
+</Warning>
+
+## Common Rate Limit Scenarios
+
+### Per-User Action Limits
+
+Limit how often a user can perform specific actions:
+
+```typescript
+// Limit code generations to 20 per minute per user
+await checkRateLimit({
+  key: generateRateLimitKey.byUser(userId, "generate"),
+  limit: 20,
+  windowMs: 60000  // 1 minute
+});
+```
+
+### IP-Based Protection
+
+Prevent abuse from specific IP addresses:
+
+```typescript
+// Limit login attempts to 5 per 15 minutes per IP
+await checkRateLimit({
+  key: generateRateLimitKey.byIP(ipAddress, "login"),
+  limit: 5,
+  windowMs: 900000  // 15 minutes
+});
+```
+
+### Global Endpoint Limits
+
+Protect expensive operations:
+
+```typescript
+// Limit webhook processing to 100 per minute globally
+await checkRateLimit({
+  key: generateRateLimitKey.byEndpoint("/api/webhooks"),
+  limit: 100,
+  windowMs: 60000
+});
+```
+
+## Rate Limits vs Credits
+
+Understand the difference between rate limits and credits:
+
+| Aspect | Rate Limits | Credits |
+|--------|-------------|----------|
+| **Purpose** | Prevent abuse, ensure stability | Track generation usage |
+| **Scope** | All API requests | Only code generations |
+| **Window** | Configurable (seconds to hours) | Fixed 24-hour rolling window |
+| **Reset** | Automatic on window expiration | Automatic after 24 hours |
+| **Bypass** | No bypass for any plan | Unlimited plan bypasses |
+| **Impact** | Temporary throttling | Blocks generations until reset |
+
+<Note>
+Even with unlimited credits, you're still subject to rate limits to ensure platform stability.
+</Note>
+
+## Best Practices
+
+### Implement Retry Logic
+
+Handle rate limit errors gracefully:
+
+```typescript
+const result = await checkRateLimit({ key, limit, windowMs });
+
+if (!result.success) {
+  const waitTime = result.resetTime - Date.now();
+  console.log(`Rate limited. Retry in ${waitTime}ms`);
+  // Implement exponential backoff or wait for reset
+}
+```
+
+### Use Appropriate Windows
+
+- **Short windows (1-5 minutes)**: Prevent burst abuse
+- **Medium windows (15-60 minutes)**: General API protection
+- **Long windows (1-24 hours)**: Daily quotas
+
+### Monitor Remaining Requests
+
+Check `remaining` count to avoid hitting limits:
+
+```typescript
+if (result.remaining < 2) {
+  console.warn("Approaching rate limit, slow down requests");
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Credits System" icon="coins" href="/usage/credits-system">
+    Learn about generation credits and tracking
+  </Card>
+  <Card title="Subscription Plans" icon="credit-card" href="/usage/subscription-plans">
+    Upgrade your plan for higher limits
+  </Card>
+</CardGroup>

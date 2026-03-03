@@ -1,0 +1,241 @@
+---
+title: "Credits System"
+description: "Understanding how ZapDev tracks and manages generation credits"
+---
+
+## Overview
+
+ZapDev uses a credit-based system to track AI code generation usage. Each generation consumes credits from your daily allowance, which resets on a 24-hour rolling window.
+
+## Credit Allocation
+
+Credits are allocated based on your subscription plan:
+
+```typescript
+const FREE_POINTS = 5;
+const PRO_POINTS = 100;
+const UNLIMITED_POINTS = Number.MAX_SAFE_INTEGER;
+```
+
+- **Free Plan**: 5 credits per 24-hour period
+- **Pro Plan**: 100 credits per 24-hour period
+- **Unlimited Plan**: Effectively unlimited credits (9,007,199,254,740,991)
+
+## Generation Cost
+
+Each AI code generation request costs exactly **1 credit**:
+
+```typescript
+const GENERATION_COST = 1;
+```
+
+This applies to all types of generations regardless of:
+- Framework choice (Next.js, Angular, React, Vue, Svelte)
+- Complexity of the request
+- Size of generated code
+- Number of files created
+
+## Credit Reset Window
+
+Credits reset on a **24-hour rolling window**, not at midnight:
+
+```typescript
+const DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+```
+
+When you first use a credit:
+1. A 24-hour timer starts
+2. Your credits decrease with each generation
+3. After 24 hours, your full credit allocation is restored
+4. The timer resets and a new 24-hour period begins
+
+<Note>
+The rolling window means if you use your first credit at 2:00 PM on Monday, your credits will reset at 2:00 PM on Tuesday, not at midnight.
+</Note>
+
+## How Credits Are Consumed
+
+When you request a code generation:
+
+### 1. Credit Check
+
+The system checks if you have sufficient credits:
+
+```typescript
+if (!isUnlimited && usage.points < GENERATION_COST) {
+  const timeUntilReset = Math.ceil((expire - now) / 1000 / 60);
+  return {
+    success: false,
+    remaining: usage.points,
+    message: `Insufficient credits. Your credits will reset in ${timeUntilReset} minutes.`
+  };
+}
+```
+
+### 2. Credit Consumption
+
+If you have credits available, one credit is consumed:
+
+```typescript
+await ctx.db.patch(usage._id, {
+  points: usage.points - GENERATION_COST,
+});
+```
+
+### 3. Response
+
+You receive confirmation with remaining credits:
+
+```typescript
+return { 
+  success: true, 
+  remaining: usage.points - GENERATION_COST 
+};
+```
+
+## Usage Tracking
+
+The system maintains a `usage` record for each user:
+
+```typescript
+interface Usage {
+  userId: string;
+  points: number;              // Current remaining credits
+  expire?: number;             // Timestamp when credits reset
+  planType?: "free" | "pro" | "unlimited";
+}
+```
+
+### Viewing Your Usage
+
+You can query your current usage stats:
+
+```typescript
+const usage = await getUsage();
+// Returns:
+{
+  points: number,              // Credits remaining
+  maxPoints: number,           // Total credits for your plan
+  expire: number,              // Reset timestamp
+  planType: string,            // "free", "pro", or "unlimited"
+  remainingPoints: number,     // Alias for points
+  creditsRemaining: number,    // Alias for points
+  msBeforeNext: number         // Milliseconds until reset
+}
+```
+
+## Credit Expiration
+
+Credits expire and reset based on your usage pattern:
+
+### First Usage or Expired Credits
+
+When you haven't used credits yet, or your 24-hour window has expired:
+
+```typescript
+if (!usage || (usage.expire && usage.expire < now)) {
+  // Full credit allocation is restored
+  const expiryTime = now + DURATION_MS;
+  // New 24-hour window begins
+}
+```
+
+### Active Usage Window
+
+While within your 24-hour window:
+- Credits decrease with each generation
+- Expiration time remains the same
+- No credits are added back until window expires
+
+## Plan-Based Behavior
+
+### Free and Pro Plans
+
+- Credits are strictly enforced
+- Generations fail when credits are exhausted
+- Must wait for 24-hour reset
+
+### Unlimited Plan
+
+- Credit checks are bypassed (`isUnlimited` flag)
+- Infinite credit pool
+- No waiting periods
+- Still tracks usage for analytics
+
+```typescript
+if (!isUnlimited && usage.points < GENERATION_COST) {
+  // Only enforced for Free and Pro plans
+}
+```
+
+<Warning>
+Unlimited plan users still have one credit consumed per generation for tracking purposes, but the check is skipped and the pool never runs out.
+</Warning>
+
+## Usage Data Storage
+
+Credits are stored in the Convex `usage` table with indexes:
+
+```typescript
+usage: defineTable({
+  userId: v.string(),
+  points: v.number(),
+  expire: v.optional(v.number()),
+  planType: v.optional(v.union(
+    v.literal("free"), 
+    v.literal("pro"), 
+    v.literal("unlimited")
+  )),
+})
+  .index("by_userId", ["userId"])
+  .index("by_expire", ["expire"])
+```
+
+## Admin Functions
+
+Administrators can reset usage for any user:
+
+```typescript
+await resetUsage({ userId: "user_123" });
+// Deletes usage record, forcing fresh credit allocation on next use
+```
+
+<Note>
+Resetting usage immediately restores full credits and starts a new 24-hour window.
+</Note>
+
+## Best Practices
+
+### Monitor Your Credits
+
+Check your remaining credits before starting large projects:
+
+```typescript
+const { creditsRemaining, msBeforeNext } = await getUsage();
+console.log(`${creditsRemaining} credits left, resets in ${msBeforeNext}ms`);
+```
+
+### Plan Your Generations
+
+Free plan users should:
+- Plan complex features carefully to use credits efficiently
+- Consider upgrading to Pro for larger projects
+- Wait for credit reset if needed
+
+### Upgrade When Needed
+
+If you frequently hit credit limits:
+- Pro plan provides 20x more credits (100 vs 5)
+- Unlimited plan removes all restrictions
+- Upgrade takes effect immediately
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Subscription Plans" icon="credit-card" href="/usage/subscription-plans">
+    Compare plans and upgrade your subscription
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/usage/rate-limits">
+    Learn about API rate limiting
+  </Card>
+</CardGroup>

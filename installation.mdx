@@ -1,0 +1,589 @@
+---
+title: Installation
+description: Complete installation and configuration guide for ZapDev with all environment variables and optional services
+---
+
+# Installation Guide
+
+This guide provides complete setup instructions for ZapDev, including all environment variables, optional services, and deployment configuration.
+
+<Note>
+For a quick 5-minute setup, see the [Quick Start Guide](/quickstart). This guide covers advanced configuration and production deployment.
+</Note>
+
+## System Requirements
+
+- **Node.js**: 18.0.0 or higher
+- **Bun**: Latest version (package manager)
+- **Docker**: Latest version (for E2B template building)
+- **Git**: For version control
+- **Operating System**: Linux, macOS, or Windows (WSL2)
+
+## Initial Setup
+
+<Steps>
+  <Step title="Install Bun Package Manager">
+    ZapDev uses Bun exclusively for package management:
+    
+    ```bash
+    # Install Bun
+    curl -fsSL https://bun.sh/install | bash
+    
+    # Verify installation
+    bun --version
+    ```
+    
+    <Warning>
+    **Always use Bun**, never npm, pnpm, or yarn. The project is optimized for Bun's performance characteristics.
+    </Warning>
+  </Step>
+
+  <Step title="Clone Repository">
+    ```bash
+    git clone https://github.com/yourusername/zapdev.git
+    cd zapdev
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    ```bash
+    bun install
+    ```
+    
+    This will install all dependencies defined in `package.json`, including:
+    - Next.js 15 with React 19
+    - Convex for real-time database
+    - tRPC for type-safe APIs
+    - Clerk for authentication
+    - E2B SDK for sandboxes
+    - Inngest for background jobs
+    - And 100+ other dependencies
+  </Step>
+</Steps>
+
+## Environment Variables
+
+Create a `.env` file in the project root with the following configuration:
+
+```bash
+cp env.example .env
+```
+
+Now configure each section:
+
+### Core Application
+
+```bash
+# Application URL
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+<Note>
+Update this to your production domain when deploying (e.g., `https://zapdev.example.com`).
+</Note>
+
+### Authentication (Required)
+
+ZapDev uses Clerk for authentication with JWT integration for Convex:
+
+```bash
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+CLERK_SECRET_KEY="sk_test_..."
+CLERK_JWT_ISSUER_DOMAIN="your-app.clerk.accounts.dev"
+CLERK_JWT_TEMPLATE_NAME="convex"
+```
+
+<Steps>
+  <Step title="Create Clerk Application">
+    1. Go to [Clerk Dashboard](https://dashboard.clerk.com/)
+    2. Create a new application
+    3. Copy the Publishable Key and Secret Key
+  </Step>
+  
+  <Step title="Configure JWT Template">
+    1. Navigate to **JWT Templates** in Clerk Dashboard
+    2. Create a new template named "convex"
+    3. Add the template name to your `.env`
+    4. Copy the **Issuer Domain** to `CLERK_JWT_ISSUER_DOMAIN`
+  </Step>
+</Steps>
+
+### Database (Required)
+
+ZapDev uses Convex as its real-time database:
+
+```bash
+# Convex Database
+NEXT_PUBLIC_CONVEX_URL="https://your-project.convex.cloud"
+NEXT_PUBLIC_CONVEX_SITE_URL="https://your-project.convex.site"
+```
+
+<Steps>
+  <Step title="Initialize Convex">
+    ```bash
+    bunx convex dev
+    ```
+    
+    Follow the prompts to:
+    1. Login or create a Convex account
+    2. Create a new project
+    3. The URLs will be automatically added to your `.env`
+  </Step>
+  
+  <Step title="Verify Database Schema">
+    The schema is defined in `convex/schema.ts`:
+    
+    ```typescript
+    export default defineSchema({
+      projects: defineTable({
+        name: v.string(),
+        userId: v.string(),
+        framework: frameworkEnum,
+        modelPreference: v.optional(v.string()),
+        createdAt: v.optional(v.number()),
+        updatedAt: v.optional(v.number()),
+      })
+        .index("by_userId", ["userId"])
+        .index("by_userId_createdAt", ["userId", "createdAt"]),
+      
+      messages: defineTable({
+        projectId: v.id("projects"),
+        role: messageRoleEnum,
+        content: v.string(),
+        status: messageStatusEnum,
+        // ... more fields
+      })
+        .index("by_projectId", ["projectId"])
+        .index("by_projectId_createdAt", ["projectId", "createdAt"]),
+      
+      // ... more tables
+    });
+    ```
+  </Step>
+</Steps>
+
+### AI Model Access (Required)
+
+ZapDev supports multiple AI providers through OpenRouter and Cerebras:
+
+```bash
+# OpenRouter API (Primary - supports OpenAI, Anthropic, xAI, etc.)
+OPENROUTER_API_KEY="sk-or-v1-..."
+OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
+
+# Cerebras API (Optional - Z.AI GLM 4.7 for ultra-fast inference)
+CEREBRAS_API_KEY="csk-..."
+
+# Vercel AI Gateway (Optional - fallback for rate limits)
+VERCEL_AI_GATEWAY_API_KEY="..."
+```
+
+<CardGroup cols={2}>
+  <Card title="OpenRouter" icon="plug">
+    Get API key at [OpenRouter](https://openrouter.ai/keys)
+    
+    Supports:
+    - OpenAI GPT-4
+    - Anthropic Claude
+    - xAI Grok
+    - And 100+ models
+  </Card>
+  
+  <Card title="Cerebras" icon="microchip">
+    Get API key at [Cerebras Cloud](https://cloud.cerebras.ai)
+    
+    Ultra-fast inference for:
+    - Code generation
+    - Real-time streaming
+  </Card>
+</CardGroup>
+
+### E2B Sandboxes (Required)
+
+E2B provides isolated sandboxes for code execution:
+
+```bash
+# E2B API
+E2B_API_KEY="e2b_..."
+```
+
+<Steps>
+  <Step title="Get E2B API Key">
+    1. Sign up at [E2B](https://e2b.dev/)
+    2. Navigate to [API Keys](https://e2b.dev/dashboard)
+    3. Create a new API key
+    4. Add it to your `.env` file
+  </Step>
+  
+  <Step title="Install E2B CLI">
+    ```bash
+    bun i -g @e2b/cli
+    ```
+  </Step>
+  
+  <Step title="Build Sandbox Templates">
+    ZapDev requires custom sandbox templates for each framework:
+    
+    ```bash
+    # Login to E2B
+    e2b auth login
+    
+    # Build Next.js template (required)
+    cd sandbox-templates/nextjs
+    e2b template build --name zapdev-nextjs --cmd "/compile_page.sh"
+    cd ../..
+    
+    # Build other framework templates (optional)
+    cd sandbox-templates/react
+    e2b template build --name zapdev-react --cmd "/compile_page.sh"
+    cd ../..
+    
+    # Repeat for angular, vue, svelte as needed
+    ```
+    
+    <Warning>
+    **Docker must be running** for template builds. The E2B CLI uses Docker to create sandbox images.
+    </Warning>
+  </Step>
+  
+  <Step title="Update Template Names">
+    After building templates, update the template names in your code.
+    
+    Open `src/inngest/functions/code-agent.ts` and update line 22:
+    
+    ```typescript
+    // Replace with your template name
+    const sandbox = await Sandbox.create("zapdev-nextjs");
+    ```
+  </Step>
+</Steps>
+
+### Billing (Optional)
+
+ZapDev uses Polar.sh for subscription management:
+
+```bash
+# Polar.sh Billing
+POLAR_ACCESS_TOKEN="polar_at_..."
+POLAR_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_POLAR_ORGANIZATION_ID="..."
+NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID="..."
+NEXT_PUBLIC_POLAR_PRO_PRICE_ID="..."
+NEXT_PUBLIC_POLAR_PRO_YEARLY_PRICE_ID="..."
+NEXT_PUBLIC_POLAR_UNLIMITED_PRODUCT_ID="..."
+NEXT_PUBLIC_POLAR_UNLIMITED_PRICE_ID="..."
+NEXT_PUBLIC_POLAR_SERVER="sandbox"  # or "production"
+```
+
+<Note>
+Polar.sh is optional. Without it, all users will have free tier access (5 generations/day).
+</Note>
+
+Get credentials from [Polar.sh Dashboard](https://polar.sh/dashboard/settings).
+
+### OAuth Providers (Optional)
+
+Enable imports from Figma and GitHub:
+
+```bash
+# Google OAuth (for Clerk social login)
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+
+# GitHub OAuth (for repository imports)
+GITHUB_CLIENT_ID="..."
+GITHUB_CLIENT_SECRET="..."
+
+# Figma OAuth (for design imports)
+FIGMA_CLIENT_ID="..."
+FIGMA_CLIENT_SECRET="..."
+```
+
+### Additional Services (Optional)
+
+```bash
+# Brave Search API (for web research in subagents)
+BRAVE_SEARCH_API_KEY="BSA..."
+
+# Firecrawl (for web scraping)
+FIRECRAWL_API_KEY="fc-..."
+
+# Sentry (for error tracking)
+NEXT_PUBLIC_SENTRY_DSN="https://...@sentry.io/..."
+SENTRY_DSN="https://...@sentry.io/..."
+
+# UploadThing (for file uploads)
+UPLOADTHING_TOKEN="..."
+```
+
+## Development Workflow
+
+### Running the Application
+
+ZapDev requires **two terminal sessions** for development:
+
+<CodeGroup>
+```bash Terminal 1: Convex Backend
+# Start Convex development server
+bun run convex:dev
+
+# This runs: bunx convex dev
+# Keep this running throughout development
+```
+
+```bash Terminal 2: Next.js Frontend
+# Start Next.js with Turbopack
+bun run dev
+
+# This runs: next dev --turbopack
+# Access at http://localhost:3000
+```
+</CodeGroup>
+
+### Database Management
+
+```bash
+# Open Convex dashboard
+bun run convex dashboard
+
+# Deploy database to production
+bun run convex:deploy
+
+# View real-time data
+open https://dashboard.convex.dev
+```
+
+### Code Quality
+
+```bash
+# Run ESLint
+bun run lint
+
+# Build for production (validates code)
+bun run build
+```
+
+## Testing AI Integration
+
+Verify your AI setup:
+
+```typescript
+// Test OpenRouter connection
+const response = await fetch('https://openrouter.ai/api/v1/models', {
+  headers: {
+    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`
+  }
+});
+
+console.log(await response.json());
+```
+
+## Project Structure
+
+Understand the codebase organization:
+
+```
+zapdev/
+├── src/
+│   ├── app/                 # Next.js App Router (pages, layouts)
+│   ├── modules/             # Feature-based modules
+│   │   ├── projects/
+│   │   │   ├── ui/         # React components
+│   │   │   └── server/     # tRPC procedures
+│   │   ├── messages/
+│   │   └── usage/
+│   ├── agents/              # AI orchestration
+│   │   ├── code-agent.ts   # Main generation loop
+│   │   ├── sandbox-utils.ts # E2B operations
+│   │   └── tools.ts        # Agent capabilities
+│   ├── inngest/             # Background job workflows
+│   │   ├── client.ts       # Inngest configuration
+│   │   └── functions/      # Job definitions
+│   ├── prompts/             # Framework-specific LLM prompts
+│   ├── components/ui/       # Shadcn/ui components
+│   ├── lib/                 # Utilities and config
+│   └── trpc/                # Type-safe API layer
+│       ├── routers/
+│       └── init.ts
+├── convex/                  # Real-time database
+│   ├── schema.ts           # Database schema
+│   ├── projects.ts         # Project queries/mutations
+│   ├── messages.ts         # Message operations
+│   ├── usage.ts            # Usage tracking
+│   └── http.ts             # Webhook handlers
+├── sandbox-templates/       # E2B configurations
+│   ├── nextjs/
+│   ├── react/
+│   ├── angular/
+│   ├── vue/
+│   └── svelte/
+└── public/                  # Static assets
+```
+
+## Configuration Files
+
+### TypeScript Configuration
+
+ZapDev uses strict TypeScript:
+
+```json
+// tsconfig.json highlights
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/convex/*": ["./convex/*"]
+    }
+  }
+}
+```
+
+### ESLint Configuration
+
+Flat config format with Next.js rules:
+
+```javascript
+// Uses eslint-config-next with strict settings
+```
+
+## Production Deployment
+
+For detailed deployment instructions, see the [Deployment Guide](/deployment). Quick overview:
+
+<Steps>
+  <Step title="Deploy Convex Database">
+    ```bash
+    bun run convex:deploy
+    ```
+  </Step>
+  
+  <Step title="Deploy to Vercel">
+    ```bash
+    # Install Vercel CLI
+    bun i -g vercel
+    
+    # Deploy
+    vercel --prod
+    ```
+    
+    Add all environment variables in Vercel Dashboard.
+  </Step>
+  
+  <Step title="Configure Webhooks">
+    Set up webhook URLs for:
+    - Clerk: `https://your-domain.com/api/webhooks/clerk`
+    - Polar.sh: `https://your-domain.com/api/webhooks/polar`
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### E2B Template Build Issues
+
+**Problem**: Template build fails with Docker errors
+
+**Solution**:
+```bash
+# Verify Docker is running
+docker ps
+
+# Start Docker if not running
+# Then retry: e2b template build --name zapdev-nextjs --cmd "/compile_page.sh"
+```
+
+### Convex Connection Errors
+
+**Problem**: "Failed to connect to Convex"
+
+**Solution**:
+```bash
+# Verify Convex URL
+echo $NEXT_PUBLIC_CONVEX_URL
+
+# Restart Convex dev server
+bun run convex:dev
+```
+
+### Module Resolution Errors
+
+**Problem**: TypeScript can't find modules with `@/` imports
+
+**Solution**:
+```bash
+# Restart TypeScript server in your editor
+# Or rebuild the project
+bun run build
+```
+
+### AI Generation Failures
+
+**Problem**: Code generation fails or times out
+
+**Solution**:
+1. Check OpenRouter credits: [OpenRouter Dashboard](https://openrouter.ai/credits)
+2. Verify E2B API key is valid
+3. Check sandbox template exists: `e2b template list`
+4. Review error logs in Convex Dashboard
+
+## Advanced Configuration
+
+### Custom Model Selection
+
+Modify model preferences in `src/agents/types.ts`:
+
+```typescript
+export const DEFAULT_MODEL = "openai/gpt-4-turbo-preview";
+export const FAST_MODEL = "cerebras/llama3.1-8b";
+```
+
+### Rate Limiting
+
+Adjust usage limits in `convex/usage.ts`:
+
+```typescript
+const RATE_LIMITS = {
+  FREE: 5,      // per 24 hours
+  PRO: 100,     // per 24 hours
+  UNLIMITED: Infinity
+};
+```
+
+### Framework Defaults
+
+Change default framework in `src/prompts/framework-selector.ts`.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Create your first application
+  </Card>
+  <Card
+    title="Framework Guide"
+    icon="layer-group"
+    href="/frameworks/overview"
+  >
+    Learn about supported frameworks
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/introduction"
+  >
+    Explore tRPC procedures and database schema
+  </Card>
+  <Card
+    title="Deployment"
+    icon="cloud"
+    href="/deployment"
+  >
+    Deploy to production
+  </Card>
+</CardGroup>

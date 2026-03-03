@@ -1,0 +1,271 @@
+---
+title: Inngest Configuration
+description: Set up Inngest for background job processing and AI code generation workflows
+---
+
+# Inngest Configuration
+
+ZapDev uses [Inngest](https://inngest.com) to handle background job processing for AI code generation, error fixing, and Figma imports. You can run Inngest locally for development or use Inngest Cloud for production.
+
+## What Inngest Does in ZapDev
+
+Inngest powers the following background workflows:
+
+- **AI Code Generation** (`agent/code-agent-kit.run`) - Generates code using Inngest Agent Kit in-memory
+- **Error Fixing** (`agent/fix-errors.run`) - Automatically fixes TypeScript errors and import issues
+- **WebContainer Runs** (`agent/code-webcontainer.run`) - Browser-based code execution
+- **Figma Imports** (`agent/figma-import.run`) - Converts Figma designs to code
+
+All functions are defined in `src/inngest/functions/` and registered via the Inngest client in `src/inngest/client.ts`.
+
+## Option 1: Local Development Server (Recommended for Development)
+
+The Inngest Dev Server provides a local dashboard for testing and debugging functions without requiring cloud setup.
+
+### Start the Dev Server
+
+In a **second terminal** (while your Next.js app runs in the first):
+
+```bash
+npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+```
+
+### Access the Dashboard
+
+Open [http://localhost:8288](http://localhost:8288) to view:
+
+- Function execution logs
+- Event history
+- Real-time debugging
+- Manual event triggers
+
+<Info>
+  The dev server automatically discovers functions from your `/api/inngest` endpoint. No additional configuration needed.
+</Info>
+
+### Environment Variables (Local)
+
+When using the local dev server, you **do not** need to set `INNGEST_EVENT_KEY` or `INNGEST_SIGNING_KEY` in `.env`. The dev server works without authentication.
+
+<Warning>
+  **Development Only**: The local Inngest dev server will NOT work for Vercel deployments or production environments. Use Inngest Cloud for hosted applications.
+</Warning>
+
+## Option 2: Inngest Cloud (Required for Production)
+
+Inngest Cloud is required for Vercel deployments and production environments. It provides hosted execution, monitoring, and reliability features.
+
+### Create an Inngest Account
+
+1. Go to [Inngest Cloud](https://app.inngest.com) and sign up
+2. Create a new app (e.g., "ZapDev Production")
+3. Navigate to the **Keys** section in your app dashboard
+
+### Get Your API Keys
+
+You'll need two keys:
+
+- **Event Key** - Used to send events to Inngest
+- **Signing Key** - Used to verify webhook requests from Inngest
+
+Copy both keys from the dashboard.
+
+### Add Keys to Environment
+
+Update your `.env` file:
+
+```bash
+INNGEST_EVENT_KEY="your-event-key"
+INNGEST_SIGNING_KEY="your-signing-key"
+```
+
+<Warning>
+  **Security**: Never commit these keys to version control. Add `.env` to your `.gitignore` file.
+</Warning>
+
+### Sync Your App with Inngest Cloud
+
+After deploying your application, sync the `/api/inngest` endpoint with Inngest:
+
+#### For Local Development with Cloud
+
+Use a tunnel service like ngrok or localtunnel to expose your local server:
+
+```bash
+# Using localtunnel
+npx localtunnel --port 3000
+
+# Copy the tunnel URL (e.g., https://your-subdomain.loca.lt)
+```
+
+Then in the Inngest dashboard:
+
+1. Go to **Apps** → **Manage** → **Sync**
+2. Enter your tunnel URL: `https://your-subdomain.loca.lt/api/inngest`
+3. Click **Sync App**
+
+#### For Vercel Deployments
+
+1. Deploy your app to Vercel
+2. In the Inngest dashboard, go to **Apps** → **Manage** → **Sync**
+3. Enter your production URL: `https://your-app.vercel.app/api/inngest`
+4. Click **Sync App**
+
+<Info>
+  Inngest will automatically discover and register all functions defined in your `src/inngest/functions/` directory.
+</Info>
+
+## Inngest Client Configuration
+
+The Inngest client is configured in `src/inngest/client.ts`:
+
+```typescript
+import { EventSchemas, Inngest } from "inngest";
+import { realtimeMiddleware } from "@inngest/realtime/middleware";
+
+export const inngest = new Inngest({
+  id: "zapdev",
+  middleware: [realtimeMiddleware()],
+  schemas: new EventSchemas().fromRecord<{
+    "agent/code-agent-kit.run": CodeAgentRunEvent;
+    "agent/code-webcontainer.run": WebContainerRunEvent;
+    "agent/fix-errors.run": FixErrorsRunEvent;
+    "agent/figma-import.run": FigmaImportRunEvent;
+  }>(),
+});
+```
+
+### Key Features
+
+- **App ID**: `"zapdev"` - Identifies your app in Inngest Cloud
+- **Realtime Middleware**: Enables streaming and real-time updates
+- **Type-Safe Events**: Schema validation for all event payloads
+
+## Available Functions
+
+ZapDev includes the following Inngest functions:
+
+### Code Generation with Agent Kit
+
+**Function**: `runCodeAgentKitFunction`  
+**Event**: `agent/code-agent-kit.run`  
+**Location**: `src/inngest/functions/code-agent.ts:96`
+
+Generates code using Inngest Agent Kit with in-memory file storage and WebContainer preview.
+
+```typescript
+const codingAgent = createAgent({
+  name: "ZapDev Coding Agent",
+  description: "Generates and edits project code in an in-memory workspace.",
+  model: openai({
+    model: selectedModel,
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
+  }),
+  tools: [terminalTool, createOrUpdateFilesTool, readFilesTool],
+});
+```
+
+### Error Fixing
+
+**Function**: `runFixErrorsFunction`  
+**Event**: `agent/fix-errors.run`  
+**Location**: `src/inngest/functions/code-agent.ts:168`
+
+Automatically reviews and fixes TypeScript errors, import issues, and bugs.
+
+### WebContainer Execution
+
+**Function**: `enqueueWebContainerRunFunction`  
+**Event**: `agent/code-webcontainer.run`  
+**Location**: `src/inngest/functions/webcontainer-run.ts`
+
+Runs code generation in the browser using WebContainer technology.
+
+### Figma Import
+
+**Function**: `runFigmaImportFunction`  
+**Event**: `agent/figma-import.run`  
+**Location**: `src/inngest/functions/figma-import.ts`
+
+Converts Figma designs to production-ready code.
+
+## Testing Inngest Functions
+
+### Trigger Events Manually
+
+In the local dev server dashboard ([localhost:8288](http://localhost:8288)):
+
+1. Click **Events** → **Send Event**
+2. Select an event type (e.g., `agent/code-agent-kit.run`)
+3. Fill in the payload:
+
+```json
+{
+  "data": {
+    "projectId": "your-project-id",
+    "value": "Create a simple todo list component",
+    "model": "anthropic/claude-haiku-4.5",
+    "framework": "nextjs"
+  }
+}
+```
+
+4. Click **Send**
+5. Monitor execution in the **Runs** tab
+
+### View Function Logs
+
+All console.log statements and errors appear in:
+
+- **Local**: Inngest Dev Server dashboard
+- **Cloud**: Inngest Cloud dashboard under **Runs**
+
+## Troubleshooting
+
+### Functions Not Appearing in Dashboard
+
+1. Verify `/api/inngest/route.ts` exports the Inngest handler
+2. Check that functions are exported from `src/inngest/functions/index.ts`
+3. Restart the dev server: `npx inngest-cli@latest dev -u http://localhost:3000/api/inngest`
+
+### Authentication Errors in Production
+
+```bash
+# Verify keys are set correctly
+echo $INNGEST_EVENT_KEY
+echo $INNGEST_SIGNING_KEY
+```
+
+Make sure both keys are added to your Vercel environment variables.
+
+### Function Timeouts
+
+If AI generation functions timeout:
+
+1. Check your OpenRouter API key is valid (`OPENROUTER_API_KEY`)
+2. Verify the model is available (e.g., `anthropic/claude-haiku-4.5`)
+3. Increase timeout in function config (default is 30 minutes for templates)
+
+### Event Not Triggering
+
+If events aren't triggering functions:
+
+1. Check the event name matches exactly (case-sensitive)
+2. Validate the payload schema matches the event type
+3. Review **Events** tab in dashboard for delivery status
+
+## Production Best Practices
+
+- **Use Inngest Cloud** for all Vercel deployments
+- **Set environment variables** in Vercel project settings, not in `.env`
+- **Monitor function runs** in the Inngest Cloud dashboard
+- **Enable retries** for critical workflows (configured per function)
+- **Use branch environments** to test changes before production sync
+
+## Next Steps
+
+- [Set up Clerk Authentication](/deployment/authentication)
+- [Configure E2B Sandboxes](/deployment/e2b-sandboxes)
+- Deploy your app to Vercel
+- Monitor function execution in Inngest Cloud

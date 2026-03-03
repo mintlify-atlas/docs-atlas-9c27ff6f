@@ -1,122 +1,171 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "ZapDev",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6366f1",
+    "light": "#818cf8",
+    "dark": "#4f46e5"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/Jackson57279/zapdev"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Jackson57279/zapdev"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Features",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "features/ai-code-generation",
+              "features/real-time-sandboxes",
+              "features/multi-framework-support",
+              "features/live-preview",
+              "features/file-explorer"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Frameworks",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "frameworks/overview",
+              "frameworks/nextjs",
+              "frameworks/angular",
+              "frameworks/react",
+              "frameworks/vue",
+              "frameworks/svelte"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Usage & Billing",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "usage/subscription-plans",
+              "usage/credits-system",
+              "usage/rate-limits"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/creating-projects",
+              "guides/chatting-with-ai",
+              "guides/managing-files",
+              "guides/importing-designs",
+              "guides/oauth-integrations"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Deployment",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Setup",
             "pages": [
-              "api-reference/introduction"
+              "deployment/overview",
+              "deployment/environment-variables",
+              "deployment/database-setup"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Platforms",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "deployment/vercel",
+              "deployment/docker",
+              "deployment/self-hosted"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "deployment/e2b-sandboxes",
+              "deployment/inngest-setup",
+              "deployment/authentication"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/introduction",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "tRPC API",
+            "pages": [
+              "api/projects",
+              "api/messages",
+              "api/usage",
+              "api/subscriptions"
+            ]
+          },
+          {
+            "group": "Convex Backend",
+            "pages": [
+              "api/convex/schema",
+              "api/convex/queries",
+              "api/convex/mutations"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "api/webhooks/polar",
+              "api/webhooks/clerk"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture",
+              "development/tech-stack",
+              "development/project-structure"
+            ]
+          },
+          {
+            "group": "AI Agents",
+            "pages": [
+              "development/agent-orchestration",
+              "development/sandbox-utils",
+              "development/prompts"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "development/contributing",
+              "development/testing",
+              "development/conventions"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

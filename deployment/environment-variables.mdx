@@ -1,0 +1,360 @@
+---
+title: "Environment Variables"
+description: "Complete reference for all required environment variables in ZapDev"
+---
+
+ZapDev requires several environment variables to be configured for proper operation. This page documents all variables, their purpose, and where to obtain them.
+
+## Configuration File
+
+Create a `.env` file in your project root with the following variables:
+
+```bash
+cp env.example .env
+```
+
+Then fill in the values as described below.
+
+## Required Variables
+
+These variables are essential for ZapDev to function.
+
+### Application URL
+
+<ParamField path="NEXT_PUBLIC_APP_URL" type="string" required>
+  The base URL of your application. Use `http://localhost:3000` for development, or your production domain for deployment.
+  
+  **Example:** `https://zapdev.example.com`
+</ParamField>
+
+### Clerk Authentication
+
+<ParamField path="NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" type="string" required>
+  Public key for Clerk authentication. Get this from [Clerk Dashboard](https://dashboard.clerk.com) → Your App → API Keys.
+  
+  **Format:** `pk_test_...` or `pk_live_...`
+</ParamField>
+
+<ParamField path="CLERK_SECRET_KEY" type="string" required>
+  Secret key for Clerk authentication. Get this from [Clerk Dashboard](https://dashboard.clerk.com) → Your App → API Keys.
+  
+  **Format:** `sk_test_...` or `sk_live_...`
+  
+  **Security:** Never commit this to version control.
+</ParamField>
+
+<ParamField path="CLERK_JWT_ISSUER_DOMAIN" type="string" required>
+  JWT issuer domain for Convex integration. Get this from Clerk Dashboard → JWT Templates → Convex template.
+  
+  **Example:** `https://your-app.clerk.accounts.dev`
+</ParamField>
+
+<ParamField path="CLERK_JWT_TEMPLATE_NAME" type="string" required>
+  Name of the JWT template for Convex. Must be set to `"convex"`.
+  
+  **Default:** `convex`
+</ParamField>
+
+### Convex Database
+
+<ParamField path="NEXT_PUBLIC_CONVEX_URL" type="string" required>
+  Your Convex deployment URL. Get this from [Convex Dashboard](https://dashboard.convex.dev/) after creating a project.
+  
+  **Format:** `https://your-project.convex.cloud`
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_CONVEX_SITE_URL" type="string" required>
+  The site URL for Convex authentication. Should match your application URL.
+  
+  **Example:** `https://zapdev.example.com`
+</ParamField>
+
+### Stack Auth (Authentication)
+
+<ParamField path="NEXT_PUBLIC_STACK_PROJECT_ID" type="string" required>
+  Your Stack Auth project ID. Get this from [Stack Auth Dashboard](https://app.stack-auth.com/).
+  
+  **Format:** UUID string
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY" type="string" required>
+  Public client key for Stack Auth. Get this from Stack Auth Dashboard → API Keys.
+  
+  **Format:** Starts with `pk_`
+</ParamField>
+
+<ParamField path="STACK_SECRET_SERVER_KEY" type="string" required>
+  Secret server key for Stack Auth. Get this from Stack Auth Dashboard → API Keys.
+  
+  **Security:** Never commit this to version control.
+</ParamField>
+
+### OpenRouter API (AI Models)
+
+<ParamField path="OPENROUTER_API_KEY" type="string" required>
+  API key for OpenRouter AI gateway. Get this from [OpenRouter Dashboard](https://openrouter.ai/keys).
+  
+  **Format:** Starts with `sk-or-`
+</ParamField>
+
+<ParamField path="OPENROUTER_BASE_URL" type="string" required>
+  Base URL for OpenRouter API.
+  
+  **Default:** `https://openrouter.ai/api/v1`
+</ParamField>
+
+## Billing & Subscriptions
+
+### Polar.sh
+
+<ParamField path="POLAR_ACCESS_TOKEN" type="string" required>
+  Access token for Polar.sh API. Get this from [Polar.sh Dashboard](https://polar.sh/dashboard/settings) → Settings → API Keys.
+  
+  **Security:** Never commit this to version control.
+</ParamField>
+
+<ParamField path="POLAR_WEBHOOK_SECRET" type="string" required>
+  Webhook secret for verifying Polar.sh webhooks. Get this from [Polar.sh Dashboard](https://polar.sh/dashboard/webhooks) → Webhooks.
+  
+  **Security:** Never commit this to version control.
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_POLAR_ORGANIZATION_ID" type="string" required>
+  Your Polar.sh organization ID. Get this from [Polar.sh Dashboard](https://polar.sh/dashboard/settings) → Organization Settings.
+  
+  **Format:** UUID string
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID" type="string" required>
+  Product ID for the Pro subscription tier. Get this from [Polar.sh Dashboard](https://polar.sh/dashboard/products) → Products → Pro.
+  
+  **Format:** UUID string
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_POLAR_PRO_PRICE_ID" type="string" required>
+  Price ID for the Pro monthly subscription. Get this from Polar.sh Dashboard → Products → Pro → Pricing.
+  
+  **Format:** UUID string
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_POLAR_PRO_YEARLY_PRICE_ID" type="string" required>
+  Price ID for the Pro yearly subscription. Get this from Polar.sh Dashboard → Products → Pro → Pricing.
+  
+  **Format:** UUID string
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_POLAR_UNLIMITED_PRODUCT_ID" type="string" required>
+  Product ID for the Unlimited subscription tier. Get this from Polar.sh Dashboard → Products → Unlimited.
+  
+  **Format:** UUID string
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_POLAR_UNLIMITED_PRICE_ID" type="string" required>
+  Price ID for the Unlimited monthly subscription. Get this from Polar.sh Dashboard → Products → Unlimited → Pricing.
+  
+  **Format:** UUID string
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_POLAR_SERVER" type="string" required>
+  Polar.sh server environment. Use `"sandbox"` for testing, `"production"` for live.
+  
+  **Default:** `production`
+  
+  **Options:** `sandbox` | `production`
+</ParamField>
+
+## Optional Services
+
+### Cerebras API (Fast Inference)
+
+<ParamField path="CEREBRAS_API_KEY" type="string">
+  API key for Cerebras Z.AI GLM 4.7 model (ultra-fast inference). Get this from [Cerebras Cloud](https://cloud.cerebras.ai).
+  
+  **Optional:** Falls back to OpenRouter if not provided.
+</ParamField>
+
+### Vercel AI Gateway (Fallback)
+
+<ParamField path="VERCEL_AI_GATEWAY_API_KEY" type="string">
+  API key for Vercel AI Gateway (used as fallback for Cerebras rate limits). Get this from [Vercel Dashboard](https://vercel.com/dashboard/ai-gateway) → AI Gateway.
+  
+  **Optional:** Only needed if using Cerebras with fallback.
+</ParamField>
+
+### Brave Search API (Web Search)
+
+<ParamField path="BRAVE_SEARCH_API_KEY" type="string">
+  API key for Brave Search API (enables web search in subagents). Get this from [Brave Search API Dashboard](https://api-dashboard.search.brave.com/app/keys).
+  
+  **Optional:** Web search features require this.
+</ParamField>
+
+### Firecrawl (Web Scraping)
+
+<ParamField path="FIRECRAWL_API_KEY" type="string">
+  API key for Firecrawl web scraping service. Get this from [Firecrawl Dashboard](https://firecrawl.dev/dashboard).
+  
+  **Optional:** Web scraping features require this.
+</ParamField>
+
+### OAuth Providers
+
+<ParamField path="GOOGLE_CLIENT_ID" type="string">
+  OAuth client ID for Google authentication. Get this from [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+  
+  **Optional:** Only needed for Google OAuth.
+</ParamField>
+
+<ParamField path="GOOGLE_CLIENT_SECRET" type="string">
+  OAuth client secret for Google authentication.
+  
+  **Security:** Never commit this to version control.
+</ParamField>
+
+<ParamField path="GITHUB_CLIENT_ID" type="string">
+  OAuth client ID for GitHub authentication. Get this from [GitHub Developer Settings](https://github.com/settings/developers).
+  
+  **Optional:** Only needed for GitHub OAuth.
+</ParamField>
+
+<ParamField path="GITHUB_CLIENT_SECRET" type="string">
+  OAuth client secret for GitHub authentication.
+  
+  **Security:** Never commit this to version control.
+</ParamField>
+
+<ParamField path="FIGMA_CLIENT_ID" type="string">
+  OAuth client ID for Figma integration. Get this from [Figma Developer Settings](https://www.figma.com/developers/apps).
+  
+  **Optional:** Only needed for Figma imports.
+</ParamField>
+
+<ParamField path="FIGMA_CLIENT_SECRET" type="string">
+  OAuth client secret for Figma integration.
+  
+  **Security:** Never commit this to version control.
+</ParamField>
+
+### Monitoring & Error Tracking
+
+<ParamField path="NEXT_PUBLIC_SENTRY_DSN" type="string">
+  Public Sentry DSN for client-side error tracking. Get this from [Sentry Dashboard](https://sentry.io/) → Settings → Projects → Client Keys (DSN).
+  
+  **Optional:** Required for production error monitoring.
+</ParamField>
+
+<ParamField path="SENTRY_DSN" type="string">
+  Sentry DSN for server-side error tracking.
+  
+  **Optional:** Can be same as `NEXT_PUBLIC_SENTRY_DSN`.
+</ParamField>
+
+### File Upload Service
+
+<ParamField path="UPLOADTHING_TOKEN" type="string">
+  API token for UploadThing file upload service. Get this from [UploadThing Dashboard](https://uploadthing.com/dashboard).
+  
+  **Optional:** Required for file upload features.
+</ParamField>
+
+## Environment-Specific Configuration
+
+### Development (.env.local)
+
+For local development, create a `.env.local` file:
+
+```bash
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_CONVEX_URL="https://your-dev-project.convex.cloud"
+NEXT_PUBLIC_POLAR_SERVER="sandbox"
+# ... other variables
+```
+
+### Production (Vercel)
+
+In Vercel Dashboard → Your Project → Settings → Environment Variables, add:
+
+1. All required variables from this page
+2. Set `NEXT_PUBLIC_APP_URL` to your production domain
+3. Set `NEXT_PUBLIC_POLAR_SERVER` to `"production"`
+4. Use production API keys (not test/sandbox keys)
+
+### Staging
+
+For staging environments:
+
+```bash
+NEXT_PUBLIC_APP_URL="https://staging.zapdev.example.com"
+NEXT_PUBLIC_POLAR_SERVER="sandbox"
+# ... use test/sandbox keys
+```
+
+## Security Best Practices
+
+<Warning>
+  **Never commit secrets to version control!** Always use `.env.local` for local development and environment variable management in your deployment platform.
+</Warning>
+
+### Checklist
+
+- [ ] Add `.env` and `.env.local` to `.gitignore`
+- [ ] Use different API keys for development and production
+- [ ] Rotate secrets regularly (every 90 days)
+- [ ] Use secret management tools (Vercel Environment Variables, AWS Secrets Manager, etc.)
+- [ ] Never expose secret keys in client-side code
+- [ ] Audit environment variables before deployment
+
+### Variables by Visibility
+
+**Public (NEXT_PUBLIC_*):** Can be exposed to the browser
+- `NEXT_PUBLIC_APP_URL`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_CONVEX_URL`
+- `NEXT_PUBLIC_STACK_PROJECT_ID`
+- `NEXT_PUBLIC_POLAR_*`
+- `NEXT_PUBLIC_SENTRY_DSN`
+
+**Private (Server-only):** Must never be exposed
+- `CLERK_SECRET_KEY`
+- `STACK_SECRET_SERVER_KEY`
+- `OPENROUTER_API_KEY`
+- `POLAR_ACCESS_TOKEN`
+- `POLAR_WEBHOOK_SECRET`
+- `*_CLIENT_SECRET` variables
+
+## Validation
+
+ZapDev validates environment variables at build time. If required variables are missing, the build will fail with an error message.
+
+To test your configuration locally:
+
+```bash
+# Start development server
+bun run dev
+
+# Check for validation errors in terminal
+```
+
+## Troubleshooting
+
+### Build Fails with "Missing Environment Variable"
+
+**Solution:** Ensure all required variables are set in your `.env` or deployment platform.
+
+### "Invalid API Key" Errors
+
+**Solution:** Verify the API key is correct and hasn't expired. Check you're using the right environment (test vs. production).
+
+### OAuth Redirect Errors
+
+**Solution:** Ensure `NEXT_PUBLIC_APP_URL` matches the redirect URL configured in OAuth provider settings.
+
+### Webhook Verification Failures
+
+**Solution:** Verify webhook secrets match exactly between your `.env` and the service dashboard (Polar.sh).
+
+## Next Steps
+
+<Card title="Database Setup" icon="database" href="/deployment/database-setup">
+  Configure and deploy your Convex database schema
+</Card>

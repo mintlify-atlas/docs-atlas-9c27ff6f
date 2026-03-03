@@ -1,0 +1,397 @@
+---
+title: Importing Designs
+description: Import Figma designs and GitHub repositories into your projects
+---
+
+## Overview
+
+ZapDev supports importing from two external sources to accelerate your development:
+
+- **Figma** - Import design files to generate matching UI code
+- **GitHub** - Import existing repositories as a starting point
+
+Both import methods require OAuth authentication to securely access your resources.
+
+## Importing from Figma
+
+Transform Figma designs into functional code automatically.
+
+### Prerequisites
+
+- Figma account with access to the designs you want to import
+- Design files in Figma (personal or team)
+
+### Import Process
+
+<Steps>
+  <Step title="Start Figma Import">
+    From the project message form or home page:
+    
+    1. Click the **download icon** (⬇️)
+    2. Select **"Import from Figma"**
+    
+    You'll be redirected to the Figma OAuth flow.
+  </Step>
+  
+  <Step title="Authorize ZapDev">
+    On the Figma authorization page:
+    
+    1. Sign in to your Figma account (if not already signed in)
+    2. Review the permissions requested:
+       - Read access to your files
+       - File metadata access
+    3. Click **"Allow access"**
+    
+    You'll be redirected back to ZapDev.
+  </Step>
+  
+  <Step title="Select Design File">
+    On the import page:
+    
+    1. Browse your Figma files and folders
+    2. Select the design file you want to import
+    3. Choose specific frames or entire pages (optional)
+    4. Click **"Import Design"**
+  </Step>
+  
+  <Step title="Processing">
+    ZapDev will:
+    
+    - Extract design elements (components, layouts, colors, typography)
+    - Analyze spacing, alignment, and hierarchy
+    - Generate framework-specific code
+    - Create components matching your design system
+    
+    Status updates:
+    - **PENDING** - Import queued
+    - **PROCESSING** - Analyzing design
+    - **COMPLETE** - Code generated
+    - **FAILED** - Error occurred
+  </Step>
+  
+  <Step title="Review Generated Code">
+    Once complete:
+    
+    - Code appears in a new message
+    - Preview shows the rendered design
+    - All design assets are converted to code
+    
+    You can now iterate on the imported design with additional messages.
+  </Step>
+</Steps>
+
+### What Gets Imported
+
+Figma import converts:
+
+| Design Element | Code Output |
+|----------------|-------------|
+| **Frames** | Page components |
+| **Components** | Reusable UI components |
+| **Text Styles** | Typography CSS/classes |
+| **Color Styles** | Color variables/theme |
+| **Auto Layout** | Flexbox/Grid layouts |
+| **Images** | Optimized image components |
+| **Icons** | SVG components |
+| **Spacing** | Margin/padding values |
+
+### Figma Import Settings
+
+Customize import behavior:
+
+```typescript
+{
+  source: "FIGMA",
+  sourceId: "file_abc123",         // Figma file ID
+  sourceName: "Dashboard Design",  // File name
+  sourceUrl: "https://figma.com/file/...",
+  metadata: {
+    frames: ["Homepage", "Dashboard"],  // Selected frames
+    version: "1.2.3",                    // Design version
+    exportFormat: "components"           // Export strategy
+  }
+}
+```
+
+### Best Practices for Figma Imports
+
+<Check>
+**Organize Designs** - Use well-structured Figma files with clear component naming and proper Auto Layout.
+</Check>
+
+<Check>
+**Design System** - Define text styles, color styles, and component variants in Figma for better code generation.
+</Check>
+
+<Check>
+**Frame Selection** - Import specific frames rather than entire files for faster processing.
+</Check>
+
+<Check>
+**Iterate** - Start with the basic import, then refine with conversational messages.
+</Check>
+
+## Importing from GitHub
+
+Bring existing repositories into ZapDev to continue development with AI assistance.
+
+### Prerequisites
+
+- GitHub account
+- Repository access (public or private)
+
+### Import Process
+
+<Steps>
+  <Step title="Start GitHub Import">
+    From the message form:
+    
+    1. Click the **download icon** (⬇️)
+    2. Select **"Import from GitHub"**
+    
+    You'll be redirected to GitHub OAuth.
+  </Step>
+  
+  <Step title="Authorize ZapDev">
+    On the GitHub authorization page:
+    
+    1. Sign in to GitHub (if not already signed in)
+    2. Review permissions:
+       - Repository access (read)
+       - File contents (read)
+    3. Select repository access scope:
+       - **All repositories** - Access to all your repos
+       - **Selected repositories** - Choose specific repos
+    4. Click **"Authorize"**
+  </Step>
+  
+  <Step title="Select Repository">
+    On the import page:
+    
+    1. Browse your repositories
+    2. Filter by organization or personal repos
+    3. Search by repository name
+    4. Select the repository to import
+    5. Choose branch (default: main)
+  </Step>
+  
+  <Step title="Import Configuration">
+    Configure import options:
+    
+    - **Include dependencies** - Import package.json/dependencies
+    - **Preserve structure** - Maintain directory organization
+    - **Framework detection** - Auto-detect framework
+  </Step>
+  
+  <Step title="Processing">
+    ZapDev will:
+    
+    - Clone repository contents
+    - Analyze project structure
+    - Detect framework and dependencies
+    - Import into project context
+    
+    Large repositories may take 1-2 minutes.
+  </Step>
+  
+  <Step title="Continue Development">
+    Once imported:
+    
+    - All files are available in the project
+    - Preview shows the application
+    - You can make changes through AI messages
+  </Step>
+</Steps>
+
+### What Gets Imported from GitHub
+
+| Repository Content | Import Behavior |
+|--------------------|----------------|
+| **Source files** | Full import |
+| **Dependencies** | package.json preserved |
+| **Configuration** | Build configs imported |
+| **Assets** | Images, fonts copied |
+| **.git folder** | Excluded |
+| **node_modules** | Excluded (reinstalled) |
+| **.env files** | Excluded (security) |
+
+### GitHub Import Metadata
+
+```typescript
+{
+  source: "GITHUB",
+  sourceId: "repo_123",                    // Repository ID
+  sourceName: "my-awesome-app",            // Repo name
+  sourceUrl: "https://github.com/user/repo",
+  metadata: {
+    owner: "username",                     // Repo owner
+    branch: "main",                        // Imported branch
+    commit: "abc123",                      // Latest commit SHA
+    framework: "NEXTJS",                   // Detected framework
+    dependencies: { /* ... */ }            // Package dependencies
+  }
+}
+```
+
+### Best Practices for GitHub Imports
+
+<Check>
+**Clean Repository** - Import well-organized repos with clear structure for best results.
+</Check>
+
+<Check>
+**Framework Compatibility** - Ensure the repo uses a supported framework (Next.js, React, Vue, Angular, Svelte).
+</Check>
+
+<Check>
+**Up-to-date Dependencies** - Modern dependency versions work better with AI generation.
+</Check>
+
+<Check>
+**Main Branch** - Import from your main/master branch for stable code.
+</Check>
+
+## Managing Import Connections
+
+View and manage your OAuth connections in project settings:
+
+### Connected Accounts
+
+See which services you've authorized:
+
+```typescript
+{
+  provider: "figma",
+  connectedAt: "2026-03-03",
+  scope: "files:read",
+  status: "active"
+}
+```
+
+```typescript
+{
+  provider: "github", 
+  connectedAt: "2026-03-03",
+  scope: "repo",
+  status: "active"
+}
+```
+
+### Revoking Access
+
+To disconnect a service:
+
+<Steps>
+  <Step title="Navigate to Settings">
+    Open your account settings page.
+  </Step>
+  
+  <Step title="Find Connected Services">
+    Locate the "OAuth Connections" section.
+  </Step>
+  
+  <Step title="Revoke Access">
+    Click **"Disconnect"** next to the service:
+    - Figma
+    - GitHub
+    
+    This will:
+    - Remove stored access tokens
+    - Require re-authorization for future imports
+    - Not affect existing imported content
+  </Step>
+</Steps>
+
+## Import Status Tracking
+
+Monitor import progress:
+
+| Status | Meaning | Duration |
+|--------|---------|----------|
+| **PENDING** | Queued for processing | 1-5 seconds |
+| **PROCESSING** | Actively importing | 10-60 seconds |
+| **COMPLETE** | Successfully imported | - |
+| **FAILED** | Error during import | - |
+
+### Error Handling
+
+If an import fails:
+
+1. **Check permissions** - Verify OAuth access is still valid
+2. **Review error message** - Specific details in import record
+3. **Retry import** - Attempt import again
+4. **Contact support** - If issues persist
+
+Common errors:
+
+- `Unauthorized` - OAuth token expired, re-authorize
+- `File not found` - Figma file deleted or moved
+- `Repository access denied` - GitHub permissions insufficient
+- `Unsupported framework` - Repository uses unsupported framework
+
+## Import Attachments
+
+Imports create attachments linked to messages:
+
+```typescript
+{
+  type: "FIGMA_FILE" | "GITHUB_REPO",
+  url: "https://...",              // Source URL
+  importId: "import_123",          // Import record ID
+  sourceMetadata: {
+    // Provider-specific data
+  },
+  messageId: "msg_456"             // Associated message
+}
+```
+
+Attachments appear in message cards with:
+- Source icon (Figma/GitHub)
+- File/repo name
+- Import timestamp
+- Link to source
+
+## Security and Privacy
+
+<Warning>
+ZapDev follows security best practices for OAuth:
+
+- **Encrypted tokens** - All access tokens encrypted at rest
+- **Minimal scope** - Request only necessary permissions
+- **Secure transmission** - HTTPS for all OAuth flows
+- **Token refresh** - Automatic token renewal when needed
+- **Revocable** - Disconnect services anytime
+</Warning>
+
+### Data Handling
+
+- **Figma designs** - Design data extracted, not stored permanently
+- **GitHub code** - Repository contents imported into project
+- **Tokens** - Encrypted in Convex database
+- **User consent** - Explicit authorization required
+
+## Troubleshooting
+
+### OAuth Authorization Fails
+
+- **Clear cookies** - Clear browser cookies and try again
+- **Check account** - Verify Figma/GitHub account is active
+- **Try different browser** - Some extensions block OAuth
+
+### Import Stuck in Processing
+
+- **Wait** - Large files may take time
+- **Refresh page** - Check if status updated
+- **Retry** - Cancel and start new import
+
+### Generated Code Doesn't Match Design
+
+- **Iterate with messages** - Refine through conversation
+- **Provide feedback** - Describe specific differences
+- **Upload screenshots** - Show expected vs. actual
+
+## Next Steps
+
+- [Manage OAuth connections](/guides/oauth-integrations)
+- [Chat with AI to refine imports](/guides/chatting-with-ai)
+- [Manage generated files](/guides/managing-files)

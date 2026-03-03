@@ -1,0 +1,363 @@
+---
+title: Managing Files
+description: View, edit, and manage generated code files in your projects
+---
+
+## Overview
+
+ZapDev generates complete, functional applications with multiple files. Each AI response creates a new code fragment containing all the files needed for your application. You can view, preview, and understand the structure of your generated code.
+
+## Understanding Fragments
+
+A **fragment** is a complete snapshot of your application at a specific point in the conversation:
+
+- Created after each successful AI response
+- Contains all project files (components, pages, styles, config)
+- Includes a live preview URL
+- Stored with metadata about the framework and generation time
+
+### Fragment Structure
+
+```javascript
+{
+  messageId: "msg_123",           // Associated message
+  sandboxUrl: "https://...",      // Live preview URL
+  title: "Task Dashboard",        // Generated title
+  framework: "NEXTJS",            // Framework type
+  files: {                        // All project files
+    "app/page.tsx": "...",
+    "components/Header.tsx": "...",
+    "styles/globals.css": "...",
+    // ... more files
+  },
+  metadata: {                     // Generation metadata
+    model: "gpt-5.1-codex",
+    generatedAt: 1234567890
+  }
+}
+```
+
+## File Preview
+
+Each message with generated code displays:
+
+### Interactive Preview
+
+The live preview shows your application running in a secure sandbox:
+
+- **Real-time rendering** - See changes instantly
+- **Isolated environment** - Runs in E2B sandbox containers
+- **Full functionality** - Interactive components work as expected
+- **Framework-specific** - Respects your chosen framework conventions
+
+### File Explorer
+
+Browse all generated files:
+
+<Steps>
+  <Step title="View File Tree">
+    Generated code appears in the message response with a file browser showing the project structure.
+  </Step>
+  
+  <Step title="Navigate Files">
+    Click on any file to view its contents:
+    - Components
+    - Pages/Routes  
+    - Styles
+    - Configuration files
+    - Package definitions
+  </Step>
+  
+  <Step title="Syntax Highlighting">
+    Code appears with appropriate syntax highlighting based on file type:
+    - TypeScript/JavaScript
+    - CSS/SCSS
+    - JSON
+    - HTML/JSX/TSX
+  </Step>
+</Steps>
+
+## File Types by Framework
+
+### Next.js Projects
+
+```
+project/
+├── app/
+│   ├── page.tsx              # Main page
+│   ├── layout.tsx            # Root layout
+│   └── globals.css           # Global styles
+├── components/
+│   ├── Header.tsx            # Reusable components
+│   └── Footer.tsx
+├── package.json              # Dependencies
+└── tailwind.config.js        # Tailwind configuration
+```
+
+### Angular Projects
+
+```
+project/
+├── src/
+│   ├── app/
+│   │   ├── app.component.ts  # Root component
+│   │   ├── app.module.ts     # App module
+│   │   └── components/       # Feature components
+│   ├── styles.scss           # Global styles
+│   └── main.ts               # Bootstrap file
+├── angular.json              # Angular config
+└── package.json              # Dependencies
+```
+
+### React Projects
+
+```
+project/
+├── src/
+│   ├── App.tsx               # Root component
+│   ├── main.tsx              # Entry point
+│   ├── components/           # Components
+│   └── index.css             # Styles
+├── package.json              # Dependencies
+└── vite.config.ts            # Vite configuration
+```
+
+### Vue Projects
+
+```
+project/
+├── src/
+│   ├── App.vue               # Root component
+│   ├── main.ts               # Entry point
+│   ├── components/           # Components
+│   └── assets/               # Static assets
+├── package.json              # Dependencies
+└── vite.config.ts            # Vite configuration
+```
+
+### Svelte Projects
+
+```
+project/
+├── src/
+│   ├── App.svelte            # Root component
+│   ├── main.ts               # Entry point
+│   ├── lib/                  # Components
+│   └── app.css               # Styles
+├── package.json              # Dependencies
+└── svelte.config.js          # Svelte configuration
+```
+
+## Working with Generated Code
+
+### Viewing Code
+
+Each fragment displays code with:
+
+- **Line numbers** - Easy reference for discussion
+- **Syntax highlighting** - Language-aware formatting
+- **Copy button** - Quick copy to clipboard
+- **File path** - Clear file location in project structure
+
+### Understanding Changes
+
+When you request modifications, ZapDev:
+
+1. **Analyzes existing code** - Reviews current fragment files
+2. **Applies changes** - Modifies only affected files
+3. **Maintains structure** - Preserves project organization
+4. **Creates new fragment** - Saves updated version
+
+<Tip>
+Each message creates a complete snapshot, so you can see the evolution of your project through the conversation history.
+</Tip>
+
+## Fragment Drafts
+
+ZapDev maintains a **draft fragment** for each project:
+
+- Stores work-in-progress code
+- Updates as AI generates new versions
+- Persists between sessions
+- Framework-specific structure
+
+```javascript
+{
+  projectId: "proj_123",
+  framework: "NEXTJS",
+  files: { /* current working files */ },
+  createdAt: 1234567890,
+  updatedAt: 1234567899
+}
+```
+
+## Sandbox URLs
+
+Each fragment includes a live preview URL:
+
+```
+https://sandbox.e2b.dev/abc123xyz
+```
+
+**Features:**
+- **Persistent** - URL remains active for the session
+- **Isolated** - Runs in secure container
+- **Pre-warmed** - Fast initial load
+- **Framework-aware** - Configured for your chosen framework
+
+<Warning>
+Sandbox URLs are temporary and may expire after extended inactivity. They're designed for preview during development, not permanent hosting.
+</Warning>
+
+## File Metadata
+
+Generated files include metadata:
+
+| Field | Description | Example |
+|-------|-------------|----------|
+| **Path** | File location in project | `components/Button.tsx` |
+| **Size** | File size in bytes | `2,458 bytes` |
+| **Language** | Detected language | `TypeScript` |
+| **Modified** | Last generation time | `2 minutes ago` |
+
+## Common File Patterns
+
+### Component Files
+
+Reusable UI components:
+
+```typescript
+// components/Button.tsx
+export interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+}
+
+export const Button = ({ label, onClick, variant = 'primary' }: ButtonProps) => {
+  return (
+    <button 
+      onClick={onClick}
+      className={`btn btn-${variant}`}
+    >
+      {label}
+    </button>
+  );
+};
+```
+
+### Page Files
+
+Route-level pages:
+
+```typescript
+// app/dashboard/page.tsx
+import { Header } from '@/components/Header';
+import { Stats } from '@/components/Stats';
+
+export default function DashboardPage() {
+  return (
+    <div>
+      <Header title="Dashboard" />
+      <Stats />
+    </div>
+  );
+}
+```
+
+### Configuration Files
+
+Framework and build configs:
+
+```json
+// package.json
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^18.3.0"
+  }
+}
+```
+
+## Best Practices
+
+<Check>
+**Review Generated Code** - Always review the files to understand what was created and ensure it matches your requirements.
+</Check>
+
+<Check>
+**Test in Preview** - Use the live preview to verify functionality before requesting further changes.
+</Check>
+
+<Check>
+**Request Specific Files** - When asking for changes, reference specific files by name:
+
+"Update the Header component in components/Header.tsx to include a search bar"
+</Check>
+
+<Check>
+**Understand Structure** - Familiarize yourself with your framework's file organization to make better requests.
+</Check>
+
+## Exporting Code
+
+To use your generated code:
+
+1. **Copy individual files** - Use the copy button on each file
+2. **Set up locally** - Create a new project with your framework's CLI
+3. **Paste files** - Add the generated code to your local project
+4. **Install dependencies** - Run `bun install` or equivalent
+5. **Start dev server** - Run your framework's dev command
+
+### Example: Exporting Next.js Project
+
+```bash
+# Create new Next.js project
+bun create next-app my-app
+cd my-app
+
+# Copy generated files into appropriate locations
+# - app/page.tsx
+# - components/*.tsx  
+# - styles/globals.css
+# - etc.
+
+# Install dependencies (if additional packages were used)
+bun install
+
+# Start development server
+bun run dev
+```
+
+## Troubleshooting
+
+### Preview Not Loading
+
+- **Wait for generation** - Large projects take 30-60 seconds
+- **Check sandbox status** - Look for error messages
+- **Refresh page** - Sometimes reconnection is needed
+
+### Files Not Showing
+
+- **Check message status** - Ensure message is marked "Complete"
+- **Verify fragment** - Confirm fragment was created successfully
+- **Review errors** - Look for generation errors in message
+
+### Code Not Working
+
+- **Request fixes** - Describe the issue in a new message
+- **Check console** - Browser console may show errors
+- **Simplify feature** - Try requesting in smaller steps
+
+## Next Steps
+
+- [Import designs from Figma](/guides/importing-designs)
+- [Set up OAuth integrations](/guides/oauth-integrations)
+- [Learn about chatting with AI](/guides/chatting-with-ai)

@@ -1,0 +1,147 @@
+---
+title: "Subscription Plans"
+description: "Learn about ZapDev's subscription tiers, pricing, and plan features"
+---
+
+## Overview
+
+ZapDev offers three subscription tiers designed to meet different development needs. All plans include access to our AI-powered code generation platform with varying credit allocations and features.
+
+## Plan Tiers
+
+### Free Plan
+
+Perfect for trying out ZapDev and small projects.
+
+- **Credits**: 5 generations per day
+- **Reset Period**: 24 hours (rolling window)
+- **Cost per Generation**: 1 credit
+- **Rate Limits**: Standard
+- **Features**:
+  - Access to all supported frameworks (Next.js, Angular, React, Vue, Svelte)
+  - E2B sandbox environments
+  - Real-time code generation
+  - Project management
+
+### Pro Plan
+
+Ideal for professional developers and active projects.
+
+- **Credits**: 100 generations per day
+- **Reset Period**: 24 hours (rolling window)
+- **Cost per Generation**: 1 credit
+- **Billing Intervals**: Monthly or Yearly
+- **Features**:
+  - All Free plan features
+  - 20x more daily generations
+  - Priority support
+  - Advanced model preferences
+
+### Unlimited Plan
+
+For power users and development teams with high-volume needs.
+
+- **Credits**: Unlimited generations
+- **No Daily Limits**: Generate as much as you need
+- **Cost per Generation**: 1 credit (unlimited pool)
+- **Billing Intervals**: Monthly or Yearly
+- **Features**:
+  - All Pro plan features
+  - No generation limits
+  - Dedicated support
+  - Custom integrations
+
+<Note>
+The Unlimited plan uses `Number.MAX_SAFE_INTEGER` (9,007,199,254,740,991) as the credit limit, effectively providing unlimited generations.
+</Note>
+
+## Subscription Status Types
+
+Your subscription can have the following statuses:
+
+- **`active`**: Subscription is active and in good standing
+- **`past_due`**: Payment failed, but subscription is still active during grace period
+- **`canceled`**: Subscription has been canceled and will not renew
+- **`unpaid`**: Payment failed and subscription is suspended
+- **`trialing`**: In trial period with full access
+
+## Billing Intervals
+
+Subscriptions are available in two billing cycles:
+
+- **Monthly**: Billed every month on the same date you subscribed
+- **Yearly**: Billed annually with discounted pricing
+
+## Plan Comparison
+
+| Feature | Free | Pro | Unlimited |
+|---------|------|-----|----------|
+| Daily Credits | 5 | 100 | Unlimited |
+| Credit Reset | 24 hours | 24 hours | N/A |
+| All Frameworks | ✓ | ✓ | ✓ |
+| E2B Sandboxes | ✓ | ✓ | ✓ |
+| Priority Support | - | ✓ | ✓ |
+| Dedicated Support | - | - | ✓ |
+| Custom Integrations | - | - | ✓ |
+
+## Subscription Management
+
+### Upgrading Your Plan
+
+Upgrade to Pro or Unlimited at any time from your account settings. Your new credit limit takes effect immediately.
+
+### Canceling Your Subscription
+
+You can cancel your subscription at any time:
+
+- **Cancel at Period End**: Continue using your plan until the current billing period ends
+- **Immediate Cancellation**: Revoke access immediately (rare cases)
+
+When `cancelAtPeriodEnd` is `true`, you'll retain access until `currentPeriodEnd`.
+
+<Warning>
+Canceling your subscription will revert you to the Free plan after your current period ends. Any unused credits do not roll over.
+</Warning>
+
+### Reactivating a Canceled Subscription
+
+If you've marked your subscription for cancellation (cancel at period end), you can reactivate it before the period ends to continue your subscription without interruption.
+
+## Trial Periods
+
+Some subscriptions may include a trial period:
+
+- Trial status is indicated by `status: "trialing"`
+- Full access to plan features during trial
+- `trialStart` and `trialEnd` timestamps define the trial period
+- Automatic conversion to paid subscription after trial ends
+
+## Subscription Data
+
+Your subscription includes the following information:
+
+```typescript
+{
+  userId: string,
+  polarSubscriptionId: string,
+  status: "active" | "past_due" | "canceled" | "unpaid" | "trialing",
+  interval: "monthly" | "yearly",
+  currentPeriodStart: number,
+  currentPeriodEnd: number,
+  cancelAtPeriodEnd: boolean,
+  canceledAt?: number,
+  trialStart?: number,
+  trialEnd?: number
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Credits System" icon="coins" href="/usage/credits-system">
+    Learn how credits are tracked and consumed
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/usage/rate-limits">
+    Understand rate limiting and quotas
+  </Card>
+</CardGroup>

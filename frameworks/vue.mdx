@@ -1,0 +1,546 @@
+---
+title: "Vue 3 with Vuetify"
+description: "Build progressive web applications with Vue 3, Vuetify, and Tailwind CSS"
+---
+
+Vue 3 with Vuetify provides a flexible, progressive framework for building modern web applications with Material Design components.
+
+## Overview
+
+Vue 3 combines intuitive template syntax with powerful reactivity and a comprehensive Material Design component library.
+
+### Pre-installed Packages
+
+- **Vue 3**: Progressive JavaScript framework with Composition API
+- **Vite**: Next-generation frontend tooling with fast HMR
+- **Vuetify 3**: Material Design component library
+- **Tailwind CSS**: Utility-first CSS framework
+- **TypeScript**: Full type safety
+- **Material Design Icons**: Icon library
+
+### Key Features
+
+- Composition API with `<script setup>` syntax
+- Reactive data binding
+- Component-based architecture
+- Vue Router for navigation
+- Fast HMR with Vite
+- Material Design components
+- Built-in theming system
+
+## Use Cases
+
+Vue 3 is best suited for:
+
+<CardGroup cols={2}>
+  <Card title="Progressive Web Apps" icon="mobile">
+    Applications with gradual adoption and flexible architecture
+  </Card>
+  
+  <Card title="Material Design UIs" icon="palette">
+    Projects requiring Google's Material Design system
+  </Card>
+  
+  <Card title="Dashboard Apps" icon="chart-bar">
+    Admin panels and data visualization dashboards
+  </Card>
+  
+  <Card title="Flexible SPAs" icon="sparkles">
+    Single-page applications with component reusability
+  </Card>
+</CardGroup>
+
+## Vuetify Components
+
+Vuetify provides a comprehensive set of Material Design components that follow Google's design guidelines.
+
+### Available Components
+
+- **Layout**: Container, Row, Col, Spacer, Divider
+- **Forms**: Btn, TextField, Select, Checkbox, Radio, Switch, Slider, Textarea
+- **Data**: DataTable, List, Card, Chip, Badge, Avatar
+- **Navigation**: AppBar, NavigationDrawer, Tabs, Breadcrumbs, BottomNavigation
+- **Feedback**: Alert, Dialog, Snackbar, ProgressCircular, ProgressLinear, Skeleton
+- **Overlays**: Menu, Tooltip, Overlay
+
+### Component Usage
+
+<Tabs>
+  <Tab title="Button">
+    ```vue
+    <script setup lang="ts">
+    const handleClick = () => {
+      console.log('Button clicked');
+    };
+    </script>
+
+    <template>
+      <div class="d-flex gap-2">
+        <v-btn color="primary">Primary</v-btn>
+        <v-btn color="secondary">Secondary</v-btn>
+        <v-btn color="error">Error</v-btn>
+        <v-btn variant="outlined">Outlined</v-btn>
+        <v-btn variant="text">Text</v-btn>
+        <v-btn @click="handleClick">Click Me</v-btn>
+      </div>
+    </template>
+    ```
+  </Tab>
+  
+  <Tab title="Card">
+    ```vue
+    <script setup lang="ts">
+    import { ref } from 'vue';
+
+    const cardTitle = ref('Card Title');
+    </script>
+
+    <template>
+      <v-card>
+        <v-card-title>{{ cardTitle }}</v-card-title>
+        <v-card-subtitle>Card subtitle</v-card-subtitle>
+        <v-card-text>
+          Card content goes here with your custom components
+        </v-card-text>
+        <v-card-actions>
+          <v-btn color="primary">Action</v-btn>
+          <v-btn variant="text">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </template>
+    ```
+  </Tab>
+  
+  <Tab title="Form">
+    ```vue
+    <script setup lang="ts">
+    import { ref } from 'vue';
+
+    const email = ref('');
+    const password = ref('');
+    const emailRules = [
+      (v: string) => !!v || 'Email is required',
+      (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid',
+    ];
+    const passwordRules = [
+      (v: string) => !!v || 'Password is required',
+      (v: string) => v.length >= 8 || 'Password must be at least 8 characters',
+    ];
+
+    const handleSubmit = () => {
+      console.log('Form submitted', { email: email.value, password: password.value });
+    };
+    </script>
+
+    <template>
+      <v-form @submit.prevent="handleSubmit">
+        <v-text-field
+          v-model="email"
+          :rules="emailRules"
+          label="Email"
+          type="email"
+          required
+        />
+        <v-text-field
+          v-model="password"
+          :rules="passwordRules"
+          label="Password"
+          type="password"
+          required
+        />
+        <v-btn type="submit" color="primary">Submit</v-btn>
+      </v-form>
+    </template>
+    ```
+  </Tab>
+  
+  <Tab title="Dialog">
+    ```vue
+    <script setup lang="ts">
+    import { ref } from 'vue';
+
+    const dialog = ref(false);
+
+    const deleteItem = () => {
+      console.log('Item deleted');
+      dialog.value = false;
+    };
+    </script>
+
+    <template>
+      <div>
+        <v-btn @click="dialog = true">Open Dialog</v-btn>
+
+        <v-dialog v-model="dialog" max-width="500">
+          <v-card>
+            <v-card-title>Delete Confirmation</v-card-title>
+            <v-card-text>
+              Are you sure you want to delete this item?
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn variant="text" @click="dialog = false">Cancel</v-btn>
+              <v-btn color="error" @click="deleteItem">Delete</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+      </div>
+    </template>
+    ```
+  </Tab>
+</Tabs>
+
+## Critical Rules
+
+<Info>
+  **Main File**: The entry point is `src/App.vue`. Do not modify `src/main.ts`.
+</Info>
+
+<Warning>
+  **Pre-installed**: Vuetify is already installed. Do not run installation commands for Vuetify or Tailwind CSS.
+</Warning>
+
+### File Conventions
+
+- **Main component**: `src/App.vue`
+- **Entry point**: `src/main.ts` (do not modify)
+- **Component files**: `ComponentName.vue` (PascalCase)
+- **Composable files**: `useFeatureName.ts` (camelCase with 'use' prefix)
+- **Components directory**: `src/components/`
+- **Composables directory**: `src/composables/`
+- **Utils directory**: `src/utils/`
+- **Types directory**: `src/types/`
+
+### Component Structure
+
+```vue
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+
+interface Props {
+  title: string;
+  count?: number;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<{
+  update: [value: number]
+}>();
+
+const localCount = ref(props.count || 0);
+const doubled = computed(() => localCount.value * 2);
+
+const increment = () => {
+  localCount.value++;
+  emit('update', localCount.value);
+};
+</script>
+
+<template>
+  <div>
+    <h2>{{ title }}</h2>
+    <p>Count: {{ localCount }}</p>
+    <p>Doubled: {{ doubled }}</p>
+    <v-btn @click="increment">Increment</v-btn>
+  </div>
+</template>
+
+<style scoped>
+/* Component-scoped styles or use Tailwind classes */
+</style>
+```
+
+### Project Structure
+
+```plaintext
+src/
+├── App.vue               # Main application component
+├── main.ts               # Entry point (do not modify)
+├── components/           # Vue components
+├── composables/          # Reusable composition functions
+├── utils/                # Utility functions
+└── types/                # TypeScript type definitions
+```
+
+## Composition API
+
+<Tabs>
+  <Tab title="Reactive State">
+    ```vue
+    <script setup lang="ts">
+    import { ref, reactive } from 'vue';
+
+    // Primitive values
+    const count = ref(0);
+    const name = ref('John');
+
+    // Objects
+    const user = reactive({
+      name: 'Jane',
+      age: 25,
+      email: 'jane@example.com'
+    });
+
+    const increment = () => {
+      count.value++;
+    };
+    </script>
+
+    <template>
+      <div>
+        <p>Count: {{ count }}</p>
+        <p>Name: {{ name }}</p>
+        <p>User: {{ user.name }} ({{ user.age }})</p>
+        <v-btn @click="increment">Increment</v-btn>
+      </div>
+    </template>
+    ```
+  </Tab>
+  
+  <Tab title="Computed Properties">
+    ```vue
+    <script setup lang="ts">
+    import { ref, computed } from 'vue';
+
+    const firstName = ref('John');
+    const lastName = ref('Doe');
+
+    const fullName = computed(() => {
+      return `${firstName.value} ${lastName.value}`;
+    });
+
+    // Writable computed
+    const count = ref(5);
+    const doubled = computed({
+      get: () => count.value * 2,
+      set: (value) => {
+        count.value = value / 2;
+      }
+    });
+    </script>
+
+    <template>
+      <div>
+        <p>Full Name: {{ fullName }}</p>
+        <p>Doubled: {{ doubled }}</p>
+      </div>
+    </template>
+    ```
+  </Tab>
+  
+  <Tab title="Watchers">
+    ```vue
+    <script setup lang="ts">
+    import { ref, watch, watchEffect } from 'vue';
+
+    const count = ref(0);
+    const doubled = ref(0);
+
+    // Watch single value
+    watch(count, (newValue, oldValue) => {
+      console.log(`Count changed from ${oldValue} to ${newValue}`);
+      doubled.value = newValue * 2;
+    });
+
+    // Watch multiple values
+    const firstName = ref('');
+    const lastName = ref('');
+
+    watch([firstName, lastName], ([newFirst, newLast]) => {
+      console.log(`Name: ${newFirst} ${newLast}`);
+    });
+
+    // WatchEffect (runs immediately)
+    watchEffect(() => {
+      console.log(`Count is ${count.value}`);
+    });
+    </script>
+
+    <template>
+      <div>
+        <p>Count: {{ count }}</p>
+        <p>Doubled: {{ doubled }}</p>
+      </div>
+    </template>
+    ```
+  </Tab>
+  
+  <Tab title="Composables">
+    ```typescript
+    // src/composables/useCounter.ts
+    import { ref, computed } from 'vue';
+
+    export function useCounter(initialValue = 0) {
+      const count = ref(initialValue);
+      const doubled = computed(() => count.value * 2);
+
+      const increment = () => {
+        count.value++;
+      };
+
+      const decrement = () => {
+        count.value--;
+      };
+
+      const reset = () => {
+        count.value = initialValue;
+      };
+
+      return {
+        count,
+        doubled,
+        increment,
+        decrement,
+        reset
+      };
+    }
+    ```
+
+    ```vue
+    <!-- Usage in component -->
+    <script setup lang="ts">
+    import { useCounter } from './composables/useCounter';
+
+    const { count, doubled, increment, decrement, reset } = useCounter(10);
+    </script>
+
+    <template>
+      <div>
+        <p>Count: {{ count }}</p>
+        <p>Doubled: {{ doubled }}</p>
+        <v-btn @click="increment">+</v-btn>
+        <v-btn @click="decrement">-</v-btn>
+        <v-btn @click="reset">Reset</v-btn>
+      </div>
+    </template>
+    ```
+  </Tab>
+</Tabs>
+
+## Vuetify Theming
+
+```typescript
+// src/plugins/vuetify.ts
+import { createVuetify } from 'vuetify';
+
+export default createVuetify({
+  theme: {
+    defaultTheme: 'light',
+    themes: {
+      light: {
+        colors: {
+          primary: '#1976D2',
+          secondary: '#424242',
+          accent: '#82B1FF',
+          error: '#FF5252',
+          info: '#2196F3',
+          success: '#4CAF50',
+          warning: '#FB8C00',
+        },
+      },
+      dark: {
+        colors: {
+          primary: '#2196F3',
+          secondary: '#424242',
+        },
+      },
+    },
+  },
+});
+```
+
+## Styling with Tailwind
+
+Combine Vuetify with Tailwind utilities:
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+
+const title = ref('Gradient Card');
+</script>
+
+<template>
+  <v-card class="max-w-md mx-auto mt-8">
+    <v-card-title class="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+      {{ title }}
+    </v-card-title>
+    <v-card-text class="p-6">
+      <p class="text-gray-700">Custom styled card with Tailwind</p>
+    </v-card-text>
+  </v-card>
+</template>
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Composition API with <script setup>">
+    ```vue
+    <!-- Prefer this -->
+    <script setup lang="ts">
+    import { ref } from 'vue';
+    const count = ref(0);
+    </script>
+    
+    <!-- Avoid Options API for new code -->
+    ```
+  </Accordion>
+  
+  <Accordion title="Extract composables for reusable logic">
+    ```typescript
+    // src/composables/useFetch.ts
+    import { ref } from 'vue';
+    
+    export function useFetch(url: string) {
+      const data = ref(null);
+      const loading = ref(true);
+      
+      fetch(url)
+        .then(r => r.json())
+        .then(json => data.value = json)
+        .finally(() => loading.value = false);
+      
+      return { data, loading };
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use v-model for two-way binding">
+    ```vue
+    <v-text-field v-model="email" label="Email" />
+    <!-- Instead of :value and @input -->
+    ```
+  </Accordion>
+  
+  <Accordion title="Implement proper TypeScript interfaces">
+    ```typescript
+    interface User {
+      id: number;
+      name: string;
+      email: string;
+    }
+    
+    const users = ref<User[]>([]);
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Teleport for modals and overlays">
+    ```vue
+    <Teleport to="body">
+      <v-dialog v-model="dialog">
+        <!-- Dialog content -->
+      </v-dialog>
+    </Teleport>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" href="/quickstart" />
+  <Card title="Framework Overview" href="/frameworks/overview" />
+  <Card title="Examples" href="/guides/creating-projects" />
+  <Card title="API Reference" href="/api/introduction" />
+</CardGroup>

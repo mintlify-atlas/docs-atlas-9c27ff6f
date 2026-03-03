@@ -1,0 +1,113 @@
+---
+title: "Framework Support"
+description: "Overview of supported web frameworks and UI libraries in ZapDev"
+---
+
+ZapDev supports five modern web frameworks, each pre-configured with a powerful UI library and Tailwind CSS. Choose the framework that best fits your project needs.
+
+## Available Frameworks
+
+<CardGroup cols={2}>
+  <Card title="Next.js 15" icon="react" href="/frameworks/nextjs">
+    Full-stack React framework with Shadcn/ui. Best for SSR, SEO-focused apps, and complex routing.
+  </Card>
+  
+  <Card title="Angular 19" icon="angular" href="/frameworks/angular">
+    Enterprise framework with Material Design. Best for complex forms and TypeScript-heavy projects.
+  </Card>
+  
+  <Card title="React 18" icon="react" href="/frameworks/react">
+    Lightweight SPA with Chakra UI. Best for simple client-side apps and learning projects.
+  </Card>
+  
+  <Card title="Vue 3" icon="vuejs" href="/frameworks/vue">
+    Progressive framework with Vuetify. Best for flexible architecture and gradual adoption.
+  </Card>
+  
+  <Card title="SvelteKit" icon="code" href="/frameworks/svelte">
+    High-performance framework with DaisyUI. Best for minimal bundle size and simple syntax.
+  </Card>
+</CardGroup>
+
+## Framework Selection
+
+ZapDev automatically selects the most appropriate framework based on your request:
+
+- **Explicit mentions**: If you specify a framework name, ZapDev uses that framework
+- **Default choice**: Next.js is the fallback for ambiguous or unspecified requests
+- **Smart detection**: ZapDev analyzes your requirements:
+  - Enterprise/complex projects → Angular
+  - Performance-critical apps → Svelte
+  - Material Design UI → Angular or Vue
+  - Vercel/Linear aesthetic → Next.js
+
+## Common Features
+
+All frameworks include:
+
+- **Tailwind CSS**: Pre-configured utility-first CSS framework
+- **TypeScript**: Full type safety and IntelliSense support
+- **Modern tooling**: Vite or Next.js for fast development
+- **Component libraries**: Production-ready UI components
+- **Isolated sandboxes**: E2B-powered development environments
+
+## Selection Examples
+
+<Tabs>
+  <Tab title="Next.js">
+    ```text
+    "Build a Netflix clone"
+    "Create an e-commerce site"
+    "Build a blog with SSR"
+    ```
+    ZapDev selects **Next.js** for full-featured React apps with server-side rendering.
+  </Tab>
+  
+  <Tab title="Angular">
+    ```text
+    "Create an Angular dashboard"
+    "Build a Material Design admin panel"
+    "Create an enterprise CRM system"
+    ```
+    ZapDev selects **Angular** for enterprise applications and Material Design UIs.
+  </Tab>
+  
+  <Tab title="React">
+    ```text
+    "Build a simple React todo app"
+    "Create a client-side calculator"
+    "Make a React portfolio site"
+    ```
+    ZapDev selects **React** for lightweight SPAs and learning projects.
+  </Tab>
+  
+  <Tab title="Vue">
+    ```text
+    "Make a Vue 3 calendar"
+    "Build a Vue dashboard with Vuetify"
+    "Create a progressive web app"
+    ```
+    ZapDev selects **Vue** for flexible, template-based applications.
+  </Tab>
+  
+  <Tab title="Svelte">
+    ```text
+    "Create a fast Svelte portfolio"
+    "Build a high-performance SvelteKit app"
+    "Make a minimal bundle size app"
+    ```
+    ZapDev selects **Svelte** for performance-critical applications.
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+Explore the framework-specific documentation to learn about pre-installed packages, use cases, and code examples:
+
+<CardGroup cols={3}>
+  <Card title="Next.js" href="/frameworks/nextjs" />
+  <Card title="Angular" href="/frameworks/angular" />
+  <Card title="React" href="/frameworks/react" />
+  <Card title="Vue" href="/frameworks/vue" />
+  <Card title="Svelte" href="/frameworks/svelte" />
+</CardGroup>

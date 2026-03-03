@@ -1,0 +1,602 @@
+---
+title: "AI Agent Orchestration"
+description: "Comprehensive guide to ZapDev's AI agent system for code generation, including Inngest workflows, model selection, and subagent research capabilities"
+---
+
+# AI Agent Orchestration
+
+ZapDev's AI agent orchestration system powers code generation through a hybrid architecture combining custom streaming agents with Inngest Agent Kit workflows. The system handles everything from model selection to subagent research, enabling intelligent code generation across multiple frameworks.
+
+## System Overview
+
+### Architecture Layers
+
+The agent system operates across three primary layers:
+
+1. **Entry Point** (`/api/agent/run`): Validates requests and dispatches Inngest events
+2. **Orchestration Layer** (`src/inngest/functions`): Manages long-running workflows via Inngest Agent Kit
+3. **Execution Layer** (`src/agents`): Handles model selection, tool execution, and subagent coordination
+
+### Execution Flow
+
+```typescript
+// User submits prompt → API validates → Inngest triggers workflow
+// src/app/api/agent/run/route.ts
+export async function POST(request: NextRequest) {
+  const { projectId, value, model } = await request.json();
+  
+  await inngest.send({
+    name: "agent/code-agent-kit.run",
+    data: { projectId, value, model },
+  });
+  
+  return NextResponse.json({ accepted: true }, { status: 202 });
+}
+```
+
+**Critical Design Principle**: Long-running work never executes in the API request lifecycle. All code generation happens asynchronously via Inngest.
+
+## Model Selection System
+
+### Available Models
+
+ZapDev supports multiple AI models with different capabilities:
+
+```typescript
+// src/agents/types.ts
+export const MODEL_CONFIGS = {
+  "anthropic/claude-haiku-4.5": {
+    name: "Claude Haiku 4.5",
+    description: "Fast and efficient for most coding tasks",
+    temperature: 0.7,
+    supportsFrequencyPenalty: true,
+    supportsSubagents: false,
+  },
+  "openai/gpt-5.1-codex": {
+    name: "GPT-5.1 Codex",
+    description: "OpenAI's flagship model for complex tasks",
+    temperature: 0.7,
+    supportsSubagents: false,
+  },
+  "zai-glm-4.7": {
+    name: "Z-AI GLM 4.7",
+    description: "Ultra-fast inference with subagent research via Cerebras",
+    temperature: 0.7,
+    supportsSubagents: true,
+    isSpeedOptimized: true,
+    maxTokens: 4096,
+  },
+  "moonshotai/kimi-k2.5": {
+    name: "Kimi K2.5",
+    description: "Advanced reasoning model for complex development tasks",
+    temperature: 0.7,
+    supportsFrequencyPenalty: true,
+  },
+  "google/gemini-3-pro-preview": {
+    name: "Gemini 3 Pro",
+    description: "State-of-the-art reasoning",
+    temperature: 0.7,
+  },
+} as const;
+```
+
+### Automatic Model Selection
+
+The system automatically selects the optimal model based on task complexity:
+
+```typescript
+// src/agents/types.ts:106-152
+export function selectModelForTask(
+  prompt: string,
+  framework?: Framework
+): keyof typeof MODEL_CONFIGS {
+  const promptLength = prompt.length;
+  const lowercasePrompt = prompt.toLowerCase();
+  
+  const defaultModel: keyof typeof MODEL_CONFIGS = "zai-glm-4.7";
+
+  // Enterprise complexity patterns
+  const enterpriseComplexityPatterns = [
+    "enterprise architecture",
+    "multi-tenant",
+    "distributed system",
+    "microservices",
+    "kubernetes",
+    "advanced authentication",
+    "complex authorization",
+    "large-scale migration",
+  ];
+
+  const requiresEnterpriseModel = enterpriseComplexityPatterns.some((pattern) =>
+    lowercasePrompt.includes(pattern)
+  );
+
+  if (requiresEnterpriseModel || promptLength > 2000) {
+    return "anthropic/claude-haiku-4.5";
+  }
+
+  // User-specified model preferences
+  if (lowercasePrompt.includes("gpt-5") || lowercasePrompt.includes("gpt5")) {
+    return "openai/gpt-5.1-codex";
+  }
+  if (lowercasePrompt.includes("gemini")) {
+    return "google/gemini-3-pro-preview";
+  }
+  if (lowercasePrompt.includes("kimi")) {
+    return "moonshotai/kimi-k2.5";
+  }
+
+  return defaultModel;
+}
+```
+
+**Selection Criteria**:
+- **Enterprise/Long Prompts** (>2000 chars): Claude Haiku 4.5
+- **Default**: Z-AI GLM 4.7 (speed-optimized with subagent support)
+- **User Requests**: Honor explicit model mentions in prompts
+
+## Inngest Workflow System
+
+### Code Agent Kit Workflow
+
+The primary code generation workflow runs entirely in-memory:
+
+```typescript
+// src/inngest/functions/code-agent.ts:96-166
+export const runCodeAgentKitFunction = inngest.createFunction(
+  { id: "run-code-agent-kit" },
+  { event: "agent/code-agent-kit.run" },
+  async ({ event }) => {
+    const framework: Framework = event.data.framework ?? "nextjs";
+    const userPrompt = event.data.value;
+    const selectedModel = getModelForAgentKit(event.data.model, userPrompt, framework);
+    const writtenFiles: Record<string, string> = {};
+
+    // Build in-memory tools
+    const tools = buildInMemoryTools(writtenFiles);
+
+    // Create coding agent
+    const codingAgent = createAgent({
+      name: "ZapDev Coding Agent",
+      description: "Generates and edits project code in an in-memory workspace.",
+      system: `${FRAMEWORK_PROMPTS[framework]}
+
+You are running inside an Inngest workflow. Files are stored in-memory and previewed via WebContainer in the browser.
+Always implement the user's request using the available tools.
+After finishing, return a concise summary wrapped in <task_summary> tags.`,
+      model: openai({
+        model: selectedModel,
+        baseUrl: "https://openrouter.ai/api/v1",
+        apiKey: process.env.OPENROUTER_API_KEY,
+        defaultParameters: { temperature: 0.2 },
+      }),
+      tools,
+    });
+
+    // Create network and run
+    const network = createNetwork({
+      name: "ZapDev Code Agent Network",
+      agents: [codingAgent],
+      router: ({ callCount }) => (callCount > 0 ? undefined : codingAgent),
+    });
+
+    const result = await network.run(userPrompt);
+    
+    // Extract summary and store results
+    const summaryText = extractSummaryText(toText(result)) ||
+      `Generated ${Object.keys(writtenFiles).length} file(s).`;
+    
+    // Save to Convex database
+    await convex.mutation(api.messages.createFragmentForUser, {
+      userId: project.userId,
+      messageId,
+      sandboxUrl: "webcontainer://local",
+      title: sanitizeTextForDatabase(summaryText.slice(0, 80)),
+      files: filterAIGeneratedFiles(writtenFiles),
+      metadata: { source: "inngest-agent-kit", model: selectedModel },
+      framework: frameworkToConvexEnum(framework),
+    });
+
+    return { ok: true, filesUpdated: Object.keys(writtenFiles).length };
+  }
+);
+```
+
+### In-Memory Tool System
+
+Tools operate on an in-memory file system, avoiding sandbox overhead:
+
+```typescript
+// src/inngest/functions/code-agent.ts:61-94
+const buildInMemoryTools = (files: Record<string, string>) => {
+  const createOrUpdateFilesTool = createTool({
+    name: "createOrUpdateFiles",
+    description: "Create or update files in the in-memory workspace.",
+    parameters: z.object({
+      files: z.array(z.object({ path: z.string(), content: z.string() })),
+    }),
+    handler: async ({ files: incoming }) => {
+      for (const file of incoming) {
+        files[file.path] = file.content;
+      }
+      return `Updated ${incoming.length} file(s).`;
+    },
+  });
+
+  const readFilesTool = createTool({
+    name: "readFiles",
+    description: "Read files from the in-memory workspace.",
+    parameters: z.object({ files: z.array(z.string()) }),
+    handler: async ({ files: paths }) =>
+      JSON.stringify(paths.map((path) => ({ path, content: files[path] ?? null }))),
+  });
+
+  const terminalTool = createTool({
+    name: "terminal",
+    description: "Terminal commands are not available in this in-memory environment.",
+    parameters: z.object({ command: z.string() }),
+    handler: async () =>
+      "Terminal is not available. Files are written in-memory and previewed via WebContainer.",
+  });
+
+  return [terminalTool, createOrUpdateFilesTool, readFilesTool];
+};
+```
+
+## Subagent Research System
+
+### Research Detection
+
+The system automatically detects when prompts require external research:
+
+```typescript
+// src/agents/subagent.ts:39-73
+export function detectResearchNeed(prompt: string): ResearchDetection {
+  const truncatedPrompt = prompt.slice(0, 1000);
+  const lowercasePrompt = truncatedPrompt.toLowerCase();
+  
+  const researchPatterns: Array<{ pattern: RegExp; type: ResearchTaskType }> = [
+    { pattern: /look\s+up/i, type: "research" },
+    { pattern: /research/i, type: "research" },
+    { pattern: /find\s+(documentation|docs|info|information|examples)/i, type: "documentation" },
+    { pattern: /check\s+(docs|documentation)/i, type: "documentation" },
+    { pattern: /how\s+does\s+(\w+\s+)?work/i, type: "research" },
+    { pattern: /latest\s+version/i, type: "research" },
+    { pattern: /compare\s+(?:(?!\s+(?:vs|versus|and)\s+).){1,200}?\s+(vs|versus|and)\s+/i, type: "comparison" },
+    { pattern: /search\s+for|find\s+(info|documentation|docs|examples?)/i, type: "research" },
+    { pattern: /best\s+practices/i, type: "research" },
+    { pattern: /how\s+to\s+use/i, type: "documentation" },
+  ];
+
+  for (const { pattern, type } of researchPatterns) {
+    if (lowercasePrompt.match(pattern)) {
+      return {
+        needs: true,
+        taskType: type,
+        query: extractResearchQuery(truncatedPrompt),
+      };
+    }
+  }
+
+  return { needs: false, taskType: null, query: null };
+}
+```
+
+### Subagent Execution
+
+When research is needed, the system spawns a specialized Morph V3 Large subagent:
+
+```typescript
+// src/agents/subagent.ts:116-173
+const SUBAGENT_MODEL = "morph/morph-v3-large";
+const DEFAULT_TIMEOUT = 30_000;
+
+export async function spawnSubagent(
+  request: SubagentRequest
+): Promise<SubagentResponse> {
+  const startTime = Date.now();
+  const timeout = request.timeout || DEFAULT_TIMEOUT;
+  
+  console.log(`[SUBAGENT] Spawning ${SUBAGENT_MODEL} for ${request.taskType} task`);
+  console.log(`[SUBAGENT] Query: ${request.query}`);
+
+  try {
+    const prompt = buildSubagentPrompt(request);
+    
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Subagent timeout")), timeout);
+    });
+
+    const generatePromise = generateText({
+      model: getClientForModel(SUBAGENT_MODEL).chat(SUBAGENT_MODEL),
+      prompt,
+      temperature: MODEL_CONFIGS[SUBAGENT_MODEL].temperature,
+    });
+
+    const result = await Promise.race([generatePromise, timeoutPromise]);
+    const elapsedTime = Date.now() - startTime;
+
+    const parsedResult = parseSubagentResponse(result.text, request.taskType);
+
+    return {
+      taskId: request.taskId,
+      status: "complete",
+      ...parsedResult,
+      elapsedTime,
+    };
+  } catch (error) {
+    const elapsedTime = Date.now() - startTime;
+    return {
+      taskId: request.taskId,
+      status: error.message.includes("timeout") ? "timeout" : "error",
+      error: error instanceof Error ? error.message : String(error),
+      elapsedTime,
+    };
+  }
+}
+```
+
+### Research Task Types
+
+The subagent system supports three task types:
+
+1. **Research**: General information lookup and best practices
+2. **Documentation**: API references and official docs
+3. **Comparison**: Side-by-side feature comparisons
+
+```typescript
+// src/agents/subagent.ts:175-241
+function buildSubagentPrompt(request: SubagentRequest): string {
+  const { taskType, query, maxResults = 5 } = request;
+
+  if (taskType === "research") {
+    return `You are a research assistant. Find the top ${maxResults} most relevant pieces of information.
+Focus on: latest information, best practices, and practical examples.
+
+Research Task: ${query}
+
+Return findings as JSON with structure:
+{
+  "summary": "2-3 sentence overview",
+  "keyPoints": ["Point 1", "Point 2"],
+  "sources": [{"url": "...", "title": "...", "snippet": "..."}]
+}`;
+  }
+
+  if (taskType === "documentation") {
+    return `Find official documentation and API references.
+Include code examples.
+
+Documentation Lookup: ${query}
+
+Return as JSON with examples array:
+{
+  "summary": "...",
+  "keyPoints": [...],
+  "examples": [{"code": "...", "description": "..."}],
+  "sources": [...]
+}`;
+  }
+
+  if (taskType === "comparison") {
+    return `Compare the options mentioned in the query.
+
+Comparison Task: ${query}
+
+Return as JSON:
+{
+  "summary": "Brief comparison overview",
+  "items": [
+    {"name": "Option 1", "pros": [...], "cons": [...]},
+    {"name": "Option 2", "pros": [...], "cons": [...]}
+  ],
+  "recommendation": "When to use each option",
+  "sources": [...]
+}`;
+  }
+}
+```
+
+## Agent Tools & Capabilities
+
+### Tool Context Interface
+
+```typescript
+// src/agents/tools.ts
+export interface ToolContext {
+  state: { files: Record<string, string> };
+  updateFiles: (files: Record<string, string>) => void;
+  onFileCreated?: (path: string, content: string) => void;
+  onToolCall?: (tool: string, args: unknown) => void;
+  onToolOutput?: (source: "stdout" | "stderr", chunk: string) => void;
+}
+```
+
+### Brave Search Tools
+
+For models with research capabilities, ZapDev provides Brave Search integration:
+
+```typescript
+// src/agents/brave-tools.ts:17-89
+export function createBraveTools() {
+  return {
+    webSearch: tool({
+      description: "Search the web using Brave Search API for real-time information",
+      inputSchema: z.object({
+        query: z.string(),
+        numResults: z.number().min(1).max(20).default(5),
+        category: z.enum(["web", "news", "research", "documentation"]).default("web"),
+      }),
+      execute: async ({ query, numResults, category }) => {
+        const results = await braveWebSearch({
+          query,
+          count: Math.min(numResults, 20),
+          freshness: mapCategoryToFreshness(category),
+        });
+        return JSON.stringify({
+          query,
+          results: results.map(r => ({
+            url: r.url,
+            title: r.title,
+            snippet: r.snippet,
+            content: r.content,
+          })),
+          count: results.length,
+        });
+      },
+    }),
+    
+    lookupDocumentation: tool({
+      description: "Look up official documentation and API references",
+      inputSchema: z.object({
+        library: z.string(),
+        topic: z.string(),
+        numResults: z.number().min(1).max(10).default(3),
+      }),
+      execute: async ({ library, topic, numResults }) => {
+        const results = await braveDocumentationSearch(library, topic, numResults);
+        return JSON.stringify({ library, topic, results });
+      },
+    }),
+    
+    searchCodeExamples: tool({
+      description: "Search for code examples from GitHub and developer resources",
+      inputSchema: z.object({
+        query: z.string(),
+        language: z.string().optional(),
+        numResults: z.number().min(1).max(10).default(3),
+      }),
+      execute: async ({ query, language, numResults }) => {
+        const results = await braveCodeSearch(query, language, numResults);
+        return JSON.stringify({ query, language, results });
+      },
+    }),
+  };
+}
+```
+
+## Stream Events
+
+The agent system emits typed events for real-time UI updates:
+
+```typescript
+// src/agents/code-agent.ts:1-43
+export interface StreamEvent {
+  type:
+    | "status"
+    | "text"
+    | "tool-call"
+    | "tool-output"
+    | "file-created"
+    | "file-updated"
+    | "progress"
+    | "files"
+    | "research-start"
+    | "research-complete"
+    | "time-budget"
+    | "error"
+    | "complete";
+  data: unknown;
+  timestamp?: number;
+}
+
+export function isToolCallEvent(
+  event: StreamEvent
+): event is StreamEvent & { type: "tool-call"; data: { tool: string; args: unknown } } {
+  return event.type === "tool-call";
+}
+
+export function isFileCreatedEvent(
+  event: StreamEvent
+): event is StreamEvent & { type: "file-created"; data: { path: string; content: string; size: number } } {
+  return event.type === "file-created";
+}
+```
+
+## Error Fixing Workflow
+
+The system includes an auto-fix workflow for correcting TypeScript and build errors:
+
+```typescript
+// src/inngest/functions/code-agent.ts:168-257
+export const runFixErrorsFunction = inngest.createFunction(
+  { id: "run-fix-errors" },
+  { event: "agent/fix-errors.run" },
+  async ({ event }) => {
+    const fragmentId = event.data.fragmentId;
+    const fragment = await convex.query(api.messages.getFragmentById, { fragmentId });
+    
+    const currentFiles: Record<string, string> = fragment.files;
+    const fixedFiles = { ...currentFiles };
+    const tools = buildInMemoryTools(fixedFiles);
+
+    const filesSummary = Object.entries(currentFiles)
+      .slice(0, 8)
+      .map(([path, content]) => `### ${path}\n\`\`\`\n${content.slice(0, 500)}\n\`\`\`\`)
+      .join("\n\n");
+
+    const fixPrompt = `Review the following code files and fix any TypeScript errors, import issues, missing dependencies, or obvious bugs.
+
+Current files:
+${filesSummary}`;
+
+    const fixAgent = createAgent({
+      name: "ZapDev Fix Agent",
+      description: "Reviews and fixes code issues in-memory.",
+      system: FRAMEWORK_PROMPTS[fragmentFramework],
+      model: openai({
+        model: fragmentModel,
+        baseUrl: "https://openrouter.ai/api/v1",
+        apiKey: process.env.OPENROUTER_API_KEY,
+        defaultParameters: { temperature: 0.2 },
+      }),
+      tools,
+    });
+
+    const result = await network.run(fixPrompt);
+    
+    // Save fixed version as new fragment
+    await convex.mutation(api.messages.createFragmentForUser, {
+      userId: project.userId,
+      messageId: fragment.messageId,
+      sandboxUrl: fragment.sandboxUrl,
+      title: fragment.title,
+      files: fixedFiles,
+      framework: frameworkToConvexEnum(fragmentFramework),
+      metadata: {
+        ...fragmentMetadata,
+        previousFiles: fragment.files,
+        fixedAt: new Date().toISOString(),
+      },
+    });
+
+    return { ok: true, summary: summaryText };
+  }
+);
+```
+
+## Best Practices
+
+### DO
+
+✅ Always use Inngest for long-running agent workflows
+✅ Leverage subagents for research tasks to improve quality
+✅ Use in-memory tools for WebContainer-based execution
+✅ Select appropriate models based on task complexity
+✅ Emit stream events for real-time UI feedback
+✅ Extract `<task_summary>` tags to capture agent outputs
+
+### DON'T
+
+❌ Never block API routes with long-running agent work
+❌ Don't use sandboxes for in-memory workflows (use WebContainer)
+❌ Don't skip model selection logic—auto-detection improves UX
+❌ Don't ignore subagent research for documentation queries
+❌ Don't forget to sanitize database inputs from agent outputs
+
+## Related Documentation
+
+- [Sandbox Utilities](/development/sandbox-utils) - E2B sandbox operations
+- [Framework Prompts](/development/prompts) - Framework-specific system prompts
+- [Architecture](/development/architecture) - Overall system architecture
+- [Tech Stack](/development/tech-stack) - Inngest and AI SDK details

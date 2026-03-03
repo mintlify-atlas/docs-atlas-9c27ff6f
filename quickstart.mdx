@@ -1,80 +1,349 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get up and running with ZapDev in under 5 minutes
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+Get ZapDev running locally in under 5 minutes. This guide covers the essentials to create your first AI-generated application.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+For detailed setup including all environment variables and optional services, see the [Installation Guide](/installation).
 </Note>
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- **Node.js 18+** installed
+- **Bun** package manager (`curl -fsSL https://bun.sh/install | bash`)
+- **Docker** installed and running (required for E2B template building)
+- **Git** for cloning the repository
+
+## Installation
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/yourusername/zapdev.git
+    cd zapdev
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    ZapDev uses Bun as the package manager:
+    
+    ```bash
+    bun install
+    ```
+    
+    <Warning>
+    Always use `bun` instead of npm, pnpm, or yarn. The project is optimized for Bun.
+    </Warning>
+  </Step>
+
+  <Step title="Set Up Environment Variables">
+    Copy the example environment file and configure essential variables:
+    
+    ```bash
+    cp env.example .env
+    ```
+    
+    Edit `.env` and add these required variables:
+    
+    ```bash
+    # Required: Convex Database
+    NEXT_PUBLIC_CONVEX_URL="https://your-project.convex.cloud"
+    
+    # Required: Clerk Authentication
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+    CLERK_SECRET_KEY="sk_test_..."
+    CLERK_JWT_ISSUER_DOMAIN="your-clerk-domain.clerk.accounts.dev"
+    
+    # Required: OpenRouter for AI Models
+    OPENROUTER_API_KEY="sk-or-v1-..."
+    
+    # Required: E2B Sandboxes
+    E2B_API_KEY="e2b_..."
+    ```
+    
+    <Note>
+    Get free API keys from:
+    - [Convex](https://www.convex.dev/) - Real-time database
+    - [Clerk](https://clerk.com/) - Authentication
+    - [OpenRouter](https://openrouter.ai/) - AI model access
+    - [E2B](https://e2b.dev/) - Code sandboxes
+    </Note>
+  </Step>
+
+  <Step title="Set Up Convex Database">
+    Initialize and start the Convex development server:
+    
+    ```bash
+    # Login to Convex
+    bunx convex dev
+    ```
+    
+    Follow the prompts to create a new project or link to an existing one. This will populate `NEXT_PUBLIC_CONVEX_URL` automatically.
+    
+    <Note>
+    Keep the Convex dev server running in a separate terminal throughout development.
+    </Note>
+  </Step>
+
+  <Step title="Build E2B Template">
+    Build the sandbox template that AI agents use to create applications:
+    
+    ```bash
+    # Install E2B CLI globally
+    bun i -g @e2b/cli
+    
+    # Login to E2B
+    e2b auth login
+    
+    # Navigate to template directory
+    cd sandbox-templates/nextjs
+    
+    # Build the template
+    e2b template build --name zapdev-sandbox --cmd "/compile_page.sh"
+    
+    # Go back to project root
+    cd ../..
+    ```
+    
+    <Warning>
+    The E2B template build requires Docker to be running. This step is required before running the application.
+    </Warning>
+  </Step>
+
+  <Step title="Update Template Name in Code">
+    After building your template, update the template name in the code:
+    
+    Open `src/inngest/functions/code-agent.ts` and update line 22:
+    
+    ```typescript
+    // Replace "zapdev" with your template name
+    const sandbox = await Sandbox.create("zapdev-sandbox");
+    ```
+  </Step>
+
+  <Step title="Start Development Server">
+    In a new terminal (keeping Convex dev server running), start the Next.js development server:
+    
+    ```bash
+    bun run dev
+    ```
+    
+    Your application will be available at `http://localhost:3000`
+  </Step>
+</Steps>
+
+## Create Your First Project
+
+Now that ZapDev is running, let's create your first AI-generated application:
+
+<Steps>
+  <Step title="Sign Up / Sign In">
+    Navigate to `http://localhost:3000` and create an account using Clerk authentication.
+  </Step>
+
+  <Step title="Create a New Project">
+    Click "New Project" and provide:
+    - **Project Name**: e.g., "My Todo App"
+    - **Framework**: Select Next.js (or your preferred framework)
+    - **Description**: Describe what you want to build
+    
+    Example description:
+    ```
+    Create a simple todo application with the ability to add, 
+    complete, and delete tasks. Use a clean, modern design with 
+    Tailwind CSS.
+    ```
+  </Step>
+
+  <Step title="Watch AI Generate Code">
+    The AI agent will:
+    - Create an E2B sandbox
+    - Generate project files
+    - Set up the development environment
+    - Build and start the application
+    
+    You'll see real-time updates in the chat interface:
+    
+    ```typescript
+    // Stream events show progress
+    {
+      type: "file-created",
+      data: {
+        path: "app/page.tsx",
+        content: "...",
+        size: 1024
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Preview Your Application">
+    Once generation completes, you'll see:
+    - **Live Preview**: Your running application
+    - **File Explorer**: Browse generated files
+    - **Code Editor**: View and understand the code
+  </Step>
+
+  <Step title="Iterate and Refine">
+    Continue the conversation to make changes:
+    
+    - "Add a filter to show only completed tasks"
+    - "Change the color scheme to dark mode"
+    - "Add persistence using local storage"
+    
+    The AI will update the code in real-time while maintaining your application's functionality.
+  </Step>
+</Steps>
+
+## Understanding the Architecture
+
+ZapDev uses a feature-based module structure:
+
+```typescript
+// Feature modules with co-located UI and server logic
+src/
+├── modules/
+│   ├── projects/
+│   │   ├── ui/              # React components
+│   │   └── server/          # tRPC procedures
+│   ├── messages/
+│   │   ├── ui/
+│   │   └── server/
+│   └── usage/
+│       ├── ui/
+│       └── server/
+├── agents/                  # AI orchestration
+├── inngest/                 # Background jobs
+└── trpc/                    # API router
+```
+
+### Key Components
+
+<CardGroup cols={2}>
+  <Card title="Convex Database" icon="database">
+    Real-time reactive database with automatic subscriptions
+  </Card>
+  <Card title="tRPC API" icon="plug">
+    Type-safe API layer with automatic TypeScript inference
+  </Card>
+  <Card title="E2B Sandboxes" icon="cube">
+    Isolated environments for safe code execution
+  </Card>
+  <Card title="AI Agents" icon="robot">
+    Orchestrate code generation with streaming updates
+  </Card>
+</CardGroup>
+
+## Usage Limits
+
+ZapDev includes built-in usage tracking:
+
+```typescript
+// Free tier: 5 generations per day
+// Pro tier: 100 generations per day
+// Unlimited tier: No limits
+```
+
+Track your usage in the dashboard or upgrade to Pro for higher limits.
+
+## Common Commands
+
+<CodeGroup>
+```bash Development
+# Terminal 1: Convex backend
+bun run convex:dev
+
+# Terminal 2: Next.js frontend
+bun run dev
+```
+
+```bash Database
+# Open Convex dashboard
+bun run convex dashboard
+
+# View database in browser
+open https://dashboard.convex.dev
+```
+
+```bash Build
+# Build for production
+bun run build
+
+# Start production server
+bun run start
+```
+
+```bash Lint
+# Run ESLint
+bun run lint
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### E2B Template Build Fails
+
+Ensure Docker is running:
+```bash
+docker ps
+```
+
+If Docker isn't running, start it and retry the template build.
+
+### Convex Connection Issues
+
+Verify your Convex URL is set correctly:
+```bash
+echo $NEXT_PUBLIC_CONVEX_URL
+```
+
+Restart the Convex dev server if needed:
+```bash
+bun run convex:dev
+```
+
+### AI Generation Errors
+
+Check your OpenRouter API key and credits:
+- Visit [OpenRouter Dashboard](https://openrouter.ai/credits)
+- Ensure your key has sufficient credits
+- Verify the key is correctly set in `.env`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Full Installation Guide"
+    icon="book"
+    href="/installation"
+  >
+    Complete setup with all environment variables and optional services
+  </Card>
+  <Card
+    title="Framework Guide"
+    icon="layer-group"
+    href="/frameworks/overview"
+  >
+    Learn about supported frameworks and their configurations
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/introduction"
+  >
+    Explore the tRPC API and database schema
+  </Card>
+  <Card
+    title="Deployment"
+    icon="cloud"
+    href="/deployment"
+  >
+    Deploy ZapDev to Vercel or your preferred platform
+  </Card>
+</CardGroup>

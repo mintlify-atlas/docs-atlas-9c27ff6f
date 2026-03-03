@@ -1,0 +1,443 @@
+---
+title: "Angular 19 with Material Design"
+description: "Build enterprise applications with Angular 19, Angular Material, and Tailwind CSS"
+---
+
+Angular 19 brings standalone components, signals, and a modern development experience for building enterprise-grade applications.
+
+## Overview
+
+Angular 19 is ideal for complex, TypeScript-heavy projects that require strong typing, dependency injection, and comprehensive tooling.
+
+### Pre-installed Packages
+
+- **Angular 19**: Latest Angular framework with standalone components
+- **Angular Material**: Comprehensive Material Design component library
+- **Tailwind CSS**: Utility-first CSS framework
+- **TypeScript**: Strict mode enabled
+- **RxJS**: Reactive programming library
+- **Angular CLI**: Code generation and build tools
+
+### Key Features
+
+- Standalone components (no NgModules required)
+- Signals for reactive state management
+- Dependency injection
+- Two-way data binding
+- Reactive forms
+- Built-in validators
+- Comprehensive testing utilities
+
+## Use Cases
+
+Angular 19 is best suited for:
+
+<CardGroup cols={2}>
+  <Card title="Enterprise Applications" icon="building">
+    Large-scale business applications with complex requirements
+  </Card>
+  
+  <Card title="Admin Dashboards" icon="layout-dashboard">
+    Material Design admin panels with data tables and forms
+  </Card>
+  
+  <Card title="Complex Forms" icon="file-text">
+    Applications with extensive form validation and reactive logic
+  </Card>
+  
+  <Card title="TypeScript Projects" icon="code">
+    Projects requiring strong typing and compile-time safety
+  </Card>
+</CardGroup>
+
+## Angular Material Components
+
+Angular Material provides a complete set of Material Design components that work seamlessly with Angular.
+
+### Available Components
+
+- **Layout**: Card, Divider, Expansion Panel, Grid List, Stepper, Tabs
+- **Forms**: Autocomplete, Checkbox, Datepicker, Input, Radio, Select, Slider, Slide Toggle
+- **Navigation**: Menu, Sidenav, Toolbar
+- **Buttons & Indicators**: Button, Button Toggle, Badge, Chips, Icon, Progress Bar, Progress Spinner
+- **Popups & Modals**: Dialog, Snackbar, Tooltip
+- **Data Tables**: Table, Paginator, Sort
+
+### Component Usage
+
+<Tabs>
+  <Tab title="Button">
+    ```typescript
+    import { Component } from '@angular/core';
+    import { MatButtonModule } from '@angular/material/button';
+
+    @Component({
+      selector: 'app-root',
+      standalone: true,
+      imports: [MatButtonModule],
+      template: `
+        <button mat-button>Basic</button>
+        <button mat-raised-button>Raised</button>
+        <button mat-raised-button color="primary">Primary</button>
+        <button mat-raised-button color="accent">Accent</button>
+        <button mat-raised-button color="warn">Warn</button>
+      `
+    })
+    export class AppComponent {}
+    ```
+  </Tab>
+  
+  <Tab title="Card">
+    ```typescript
+    import { Component } from '@angular/core';
+    import { MatCardModule } from '@angular/material/card';
+    import { MatButtonModule } from '@angular/material/button';
+
+    @Component({
+      selector: 'app-root',
+      standalone: true,
+      imports: [MatCardModule, MatButtonModule],
+      template: `
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>Card Title</mat-card-title>
+            <mat-card-subtitle>Card subtitle</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>Card content goes here</p>
+          </mat-card-content>
+          <mat-card-actions>
+            <button mat-button>ACTION</button>
+          </mat-card-actions>
+        </mat-card>
+      `
+    })
+    export class AppComponent {}
+    ```
+  </Tab>
+  
+  <Tab title="Form">
+    ```typescript
+    import { Component } from '@angular/core';
+    import { CommonModule } from '@angular/common';
+    import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+    import { MatInputModule } from '@angular/material/input';
+    import { MatFormFieldModule } from '@angular/material/form-field';
+    import { MatButtonModule } from '@angular/material/button';
+
+    @Component({
+      selector: 'app-root',
+      standalone: true,
+      imports: [
+        CommonModule,
+        ReactiveFormsModule,
+        MatInputModule,
+        MatFormFieldModule,
+        MatButtonModule
+      ],
+      template: `
+        <form [formGroup]="form" (ngSubmit)="onSubmit()">
+          <mat-form-field>
+            <mat-label>Email</mat-label>
+            <input matInput formControlName="email" type="email">
+            <mat-error *ngIf="form.get('email')?.hasError('required')">
+              Email is required
+            </mat-error>
+            <mat-error *ngIf="form.get('email')?.hasError('email')">
+              Invalid email
+            </mat-error>
+          </mat-form-field>
+          <button mat-raised-button color="primary" type="submit">
+            Submit
+          </button>
+        </form>
+      `
+    })
+    export class AppComponent {
+      form = this.fb.group({
+        email: ['', [Validators.required, Validators.email]]
+      });
+
+      constructor(private fb: FormBuilder) {}
+
+      onSubmit() {
+        if (this.form.valid) {
+          console.log(this.form.value);
+        }
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Dialog">
+    ```typescript
+    import { Component } from '@angular/core';
+    import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+    import { MatButtonModule } from '@angular/material/button';
+
+    @Component({
+      selector: 'app-dialog',
+      standalone: true,
+      imports: [MatDialogModule, MatButtonModule],
+      template: `
+        <h2 mat-dialog-title>Delete Confirmation</h2>
+        <mat-dialog-content>
+          Are you sure you want to delete this item?
+        </mat-dialog-content>
+        <mat-dialog-actions>
+          <button mat-button mat-dialog-close>Cancel</button>
+          <button mat-raised-button color="warn" [mat-dialog-close]="true">
+            Delete
+          </button>
+        </mat-dialog-actions>
+      `
+    })
+    export class DialogComponent {}
+
+    @Component({
+      selector: 'app-root',
+      standalone: true,
+      imports: [MatButtonModule],
+      template: `
+        <button mat-raised-button (click)="openDialog()">Open Dialog</button>
+      `
+    })
+    export class AppComponent {
+      constructor(private dialog: MatDialog) {}
+
+      openDialog() {
+        this.dialog.open(DialogComponent);
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Critical Rules
+
+<Warning>
+  **Standalone Components**: Always use `standalone: true` in component decorators. NgModules are not used in ZapDev.
+</Warning>
+
+<Info>
+  **CommonModule**: Import `CommonModule` for `*ngIf`, `*ngFor`, and other structural directives.
+</Info>
+
+### File Conventions
+
+- **Main component**: `src/app/app.component.ts`
+- **Component files**: `component-name.component.ts` (kebab-case)
+- **Service files**: `service-name.service.ts` (kebab-case)
+- **Components directory**: `src/app/components/`
+- **Services directory**: `src/app/services/`
+- **Models directory**: `src/app/models/`
+
+### Component Structure
+
+```typescript
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'app-component-name',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div>
+      <!-- Template content -->
+    </div>
+  `,
+  styles: [`
+    /* Component styles or use Tailwind classes */
+  `]
+})
+export class ComponentNameComponent {
+  // Component logic
+}
+```
+
+### Project Structure
+
+```plaintext
+src/
+├── app/
+│   ├── app.component.ts      # Main component
+│   ├── components/           # Feature components
+│   ├── services/             # Injectable services
+│   └── models/               # TypeScript interfaces
+├── styles.css                # Global styles
+└── main.ts                   # Bootstrap file
+```
+
+## Signals for State Management
+
+Angular 19 introduces signals for reactive state management:
+
+<Tabs>
+  <Tab title="Basic Signal">
+    ```typescript
+    import { Component, signal } from '@angular/core';
+    import { MatButtonModule } from '@angular/material/button';
+
+    @Component({
+      selector: 'app-root',
+      standalone: true,
+      imports: [MatButtonModule],
+      template: `
+        <div>
+          <p>Count: {{ count() }}</p>
+          <button mat-raised-button (click)="increment()">
+            Increment
+          </button>
+        </div>
+      `
+    })
+    export class AppComponent {
+      count = signal(0);
+
+      increment() {
+        this.count.update(value => value + 1);
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Computed Signal">
+    ```typescript
+    import { Component, signal, computed } from '@angular/core';
+
+    @Component({
+      selector: 'app-root',
+      standalone: true,
+      template: `
+        <div>
+          <p>Count: {{ count() }}</p>
+          <p>Doubled: {{ doubled() }}</p>
+        </div>
+      `
+    })
+    export class AppComponent {
+      count = signal(5);
+      doubled = computed(() => this.count() * 2);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## RxJS Observables
+
+For async operations, use RxJS:
+
+```typescript
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div *ngIf="data$ | async as data">
+      {{ data | json }}
+    </div>
+  `
+})
+export class AppComponent {
+  data$: Observable<any>;
+
+  constructor(private http: HttpClient) {
+    this.data$ = this.http.get('https://api.example.com/data');
+  }
+}
+```
+
+## Styling with Tailwind
+
+Combine Angular Material with Tailwind utilities:
+
+```typescript
+import { Component } from '@angular/core';
+import { MatCardModule } from '@angular/material/card';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [MatCardModule],
+  template: `
+    <mat-card class="max-w-md mx-auto mt-8">
+      <mat-card-header class="bg-gradient-to-r from-blue-500 to-purple-600">
+        <mat-card-title class="text-white">Gradient Header</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="p-6">
+        <p class="text-gray-700">Custom styled card</p>
+      </mat-card-content>
+    </mat-card>
+  `
+})
+export class AppComponent {}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use dependency injection">
+    ```typescript
+    import { Injectable } from '@angular/core';
+    
+    @Injectable({ providedIn: 'root' })
+    export class DataService {
+      getData() {
+        return ['item1', 'item2'];
+      }
+    }
+    
+    // In component
+    constructor(private dataService: DataService) {}
+    ```
+  </Accordion>
+  
+  <Accordion title="Implement lifecycle hooks">
+    ```typescript
+    import { Component, OnInit, OnDestroy } from '@angular/core';
+    
+    export class AppComponent implements OnInit, OnDestroy {
+      ngOnInit() {
+        // Initialization logic
+      }
+      
+      ngOnDestroy() {
+        // Cleanup logic
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use async pipe for observables">
+    ```typescript
+    // Automatically subscribes and unsubscribes
+    <div *ngIf="data$ | async as data">
+      {{ data }}
+    </div>
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle form validation properly">
+    ```typescript
+    form = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(8)]]
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" href="/quickstart" />
+  <Card title="Framework Overview" href="/frameworks/overview" />
+  <Card title="Examples" href="/guides/creating-projects" />
+  <Card title="API Reference" href="/api/introduction" />
+</CardGroup>

@@ -1,0 +1,522 @@
+---
+title: "Docker Deployment"
+description: "Deploy ZapDev using Docker containers for flexible infrastructure deployment"
+---
+
+While Vercel is the recommended platform, you can deploy ZapDev using Docker for more control over your infrastructure or when deploying to custom environments.
+
+<Note>
+  ZapDev does not include a pre-built Dockerfile. This guide shows how to create one for containerized deployment.
+</Note>
+
+## Prerequisites
+
+- Docker and Docker Compose installed
+- All required service accounts (Convex, Clerk, E2B, etc.)
+- Container registry access (Docker Hub, GitHub Container Registry, etc.)
+- Host server with Node.js 18+ support
+
+## Creating a Dockerfile
+
+ZapDev uses Bun as the package manager. Create a `Dockerfile` in your project root:
+
+```dockerfile
+# Dockerfile
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+# Install dependencies
+FROM base AS deps
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile --production
+
+# Development dependencies for build
+FROM base AS build-deps
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
+
+# Build the application
+FROM build-deps AS build
+COPY . .
+RUN bun run build
+
+# Production image
+FROM base AS runtime
+
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built application
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+
+# Copy node_modules for runtime dependencies
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["bun", "run", "start"]
+```
+
+<Warning>
+  Update `next.config.js` to enable standalone output:
+  
+  ```javascript
+  module.exports = {
+    output: 'standalone',
+    // ... rest of config
+  }
+  ```
+</Warning>
+
+## Docker Compose Setup
+
+Create a `docker-compose.yml` for local development and testing:
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  zapdev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - NEXT_PUBLIC_CONVEX_URL=${NEXT_PUBLIC_CONVEX_URL}
+      - NEXT_PUBLIC_CONVEX_SITE_URL=${NEXT_PUBLIC_CONVEX_SITE_URL}
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - CLERK_JWT_ISSUER_DOMAIN=${CLERK_JWT_ISSUER_DOMAIN}
+      - CLERK_JWT_TEMPLATE_NAME=${CLERK_JWT_TEMPLATE_NAME}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL}
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY}
+      - E2B_API_KEY=${E2B_API_KEY}
+      - INNGEST_EVENT_KEY=${INNGEST_EVENT_KEY}
+      - INNGEST_SIGNING_KEY=${INNGEST_SIGNING_KEY}
+      - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN}
+      - POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET}
+      - NEXT_PUBLIC_POLAR_ORGANIZATION_ID=${NEXT_PUBLIC_POLAR_ORGANIZATION_ID}
+      - NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID=${NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID}
+      - NEXT_PUBLIC_POLAR_SERVER=${NEXT_PUBLIC_POLAR_SERVER}
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+```
+
+## Building the Image
+
+<Steps>
+  <Step title="Build Docker Image">
+    ```bash
+    docker build -t zapdev:latest .
+    ```
+    
+    This creates a production-optimized image with all dependencies.
+  </Step>
+
+  <Step title="Test Locally">
+    ```bash
+    # Create .env.production with your environment variables
+    cp .env .env.production
+    
+    # Start container
+    docker-compose up -d
+    
+    # View logs
+    docker-compose logs -f zapdev
+    ```
+  </Step>
+
+  <Step title="Verify Deployment">
+    Open `http://localhost:3000` and test:
+    - Application loads
+    - Authentication works
+    - AI generation functions
+  </Step>
+</Steps>
+
+## Deployment Options
+
+### Option 1: Cloud Container Services
+
+Deploy to managed container platforms:
+
+#### AWS ECS/Fargate
+
+<Steps>
+  <Step title="Push to ECR">
+    ```bash
+    # Authenticate to ECR
+    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+    
+    # Tag image
+    docker tag zapdev:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/zapdev:latest
+    
+    # Push
+    docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/zapdev:latest
+    ```
+  </Step>
+
+  <Step title="Create ECS Task Definition">
+    - Define container with 2GB memory, 1 vCPU minimum
+    - Add all environment variables
+    - Configure health check endpoint: `/api/health`
+    - Set port mapping: 3000
+  </Step>
+
+  <Step title="Create ECS Service">
+    - Use Application Load Balancer
+    - Configure target group health checks
+    - Set desired count: 2+ for high availability
+    - Enable auto-scaling based on CPU/memory
+  </Step>
+</Steps>
+
+#### Google Cloud Run
+
+```bash
+# Build and push to Google Container Registry
+gcloud builds submit --tag gcr.io/PROJECT_ID/zapdev
+
+# Deploy to Cloud Run
+gcloud run deploy zapdev \
+  --image gcr.io/PROJECT_ID/zapdev \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="NEXT_PUBLIC_CONVEX_URL=https://...,E2B_API_KEY=..." \
+  --memory 2Gi \
+  --cpu 2 \
+  --min-instances 1
+```
+
+#### Azure Container Apps
+
+```bash
+# Push to Azure Container Registry
+az acr build --registry myregistry --image zapdev:latest .
+
+# Create container app
+az containerapp create \
+  --name zapdev \
+  --resource-group myResourceGroup \
+  --environment myEnvironment \
+  --image myregistry.azurecr.io/zapdev:latest \
+  --target-port 3000 \
+  --ingress external \
+  --env-vars "NEXT_PUBLIC_CONVEX_URL=https://..." "E2B_API_KEY=..."
+```
+
+### Option 2: Kubernetes
+
+For production-grade orchestration:
+
+```yaml
+# kubernetes/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zapdev
+  labels:
+    app: zapdev
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: zapdev
+  template:
+    metadata:
+      labels:
+        app: zapdev
+    spec:
+      containers:
+      - name: zapdev
+        image: your-registry/zapdev:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_CONVEX_URL
+          valueFrom:
+            secretKeyRef:
+              name: zapdev-secrets
+              key: convex-url
+        - name: E2B_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: zapdev-secrets
+              key: e2b-api-key
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zapdev
+spec:
+  selector:
+    app: zapdev
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: LoadBalancer
+```
+
+Deploy with:
+
+```bash
+# Create secrets
+kubectl create secret generic zapdev-secrets \
+  --from-literal=convex-url=$NEXT_PUBLIC_CONVEX_URL \
+  --from-literal=e2b-api-key=$E2B_API_KEY \
+  # ... add all secrets
+
+# Deploy
+kubectl apply -f kubernetes/deployment.yaml
+
+# Check status
+kubectl get pods -l app=zapdev
+```
+
+### Option 3: Self-Hosted VPS
+
+See [Self-Hosted Deployment](/deployment/self-hosted) for dedicated servers.
+
+## Environment Configuration
+
+### Creating .env.production
+
+Copy your environment variables to `.env.production`:
+
+```bash
+# Application
+NEXT_PUBLIC_APP_URL="https://your-domain.com"
+
+# Convex
+NEXT_PUBLIC_CONVEX_URL="https://your-deployment.convex.cloud"
+NEXT_PUBLIC_CONVEX_SITE_URL="https://your-domain.com"
+
+# Auth (Clerk or Stack)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_live_..."
+CLERK_SECRET_KEY="sk_live_..."
+CLERK_JWT_ISSUER_DOMAIN="clerk.your-domain.com"
+CLERK_JWT_TEMPLATE_NAME="convex"
+
+# AI Services
+OPENROUTER_API_KEY="sk-or-..."
+OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
+CEREBRAS_API_KEY="csk-..."
+
+# E2B
+E2B_API_KEY="e2b_..."
+
+# Inngest
+INNGEST_EVENT_KEY="ac9_..."
+INNGEST_SIGNING_KEY="signkey-..."
+
+# Billing
+POLAR_ACCESS_TOKEN="polar_at_..."
+POLAR_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_POLAR_ORGANIZATION_ID="org_..."
+NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID="prod_..."
+NEXT_PUBLIC_POLAR_SERVER="production"
+```
+
+<Warning>
+  Never commit `.env.production` to version control. Add it to `.gitignore`.
+</Warning>
+
+## Required Setup Steps
+
+Before deploying containers:
+
+<Steps>
+  <Step title="Deploy Convex Backend">
+    ```bash
+    bunx convex deploy
+    ```
+    
+    Copy the `NEXT_PUBLIC_CONVEX_URL` for your container environment.
+  </Step>
+
+  <Step title="Build E2B Template">
+    ```bash
+    cd sandbox-templates/nextjs
+    e2b template build --name zapdev-production --cmd "/compile_page.sh"
+    ```
+    
+    Update the template name in your code before building the Docker image.
+  </Step>
+
+  <Step title="Sync Inngest Cloud">
+    After deployment:
+    - Go to [Inngest Dashboard](https://app.inngest.com)
+    - Add your container URL: `https://your-domain.com/api/inngest`
+    - Click "Sync"
+  </Step>
+
+  <Step title="Configure Webhooks">
+    Update webhook URLs in:
+    - Clerk: `https://your-domain.com/api/webhooks/clerk`
+    - Polar.sh: `https://your-domain.com/api/webhooks/polar`
+  </Step>
+</Steps>
+
+## Monitoring and Logging
+
+### Container Logs
+
+```bash
+# Docker Compose
+docker-compose logs -f zapdev
+
+# Docker
+docker logs -f <container-id>
+
+# Kubernetes
+kubectl logs -f deployment/zapdev
+```
+
+### Health Checks
+
+Create a health check endpoint at `/api/health`:
+
+```typescript
+// app/api/health/route.ts
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  return NextResponse.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+  });
+}
+```
+
+### Resource Monitoring
+
+```bash
+# Docker stats
+docker stats zapdev
+
+# Kubernetes metrics
+kubectl top pods -l app=zapdev
+```
+
+## Troubleshooting
+
+### Container Won't Start
+
+**Check logs**:
+```bash
+docker logs <container-id>
+```
+
+**Common issues**:
+- Missing environment variables
+- Invalid Convex URL
+- Port already in use
+
+### Build Failures
+
+**Issue**: `bun install` fails
+
+**Solution**:
+```dockerfile
+# Use specific Bun version
+FROM oven/bun:1.0.15 AS base
+```
+
+### Memory Issues
+
+**Issue**: Container crashes with OOM
+
+**Solution**:
+```yaml
+# Increase memory limit in docker-compose.yml
+services:
+  zapdev:
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+```
+
+## Performance Optimization
+
+### Multi-Stage Build
+
+The provided Dockerfile uses multi-stage builds to:
+- Minimize final image size
+- Separate build and runtime dependencies
+- Reduce attack surface
+
+### Caching
+
+Optimize build speed:
+
+```dockerfile
+# Cache node_modules separately
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
+
+# Then copy source code
+COPY . .
+```
+
+### Image Size
+
+Check image size:
+```bash
+docker images zapdev
+```
+
+Typical size: 500MB-1GB (optimized with multi-stage build)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Vercel Deployment" icon="triangle" href="/deployment/vercel">
+    Deploy to Vercel for the simplest setup
+  </Card>
+  <Card title="Self-Hosted" icon="server" href="/deployment/self-hosted">
+    Full control with VPS deployment
+  </Card>
+</CardGroup>

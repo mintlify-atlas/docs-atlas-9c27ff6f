@@ -1,0 +1,203 @@
+---
+title: API Reference Overview
+description: Learn about ZapDev's dual API architecture using tRPC and Convex for type-safe, real-time development
+---
+
+# API Reference Overview
+
+ZapDev provides a **hybrid API architecture** that combines two powerful technologies:
+
+- **tRPC**: Type-safe API layer for feature-specific endpoints
+- **Convex**: Real-time database with reactive queries and mutations
+
+This architecture ensures end-to-end type safety while enabling real-time data synchronization across your application.
+
+## Architecture Overview
+
+### tRPC API Layer
+
+The tRPC layer provides type-safe procedures for client-server communication. All tRPC endpoints are defined using strict TypeScript types with automatic inference.
+
+**Location**: `src/trpc/routers/_app.ts`
+
+```typescript
+import { createTRPCRouter } from '../init';
+import { usageRouter } from '@/modules/usage/server/procedures';
+import { messagesRouter } from '@/modules/messages/server/procedures';
+import { projectsRouter } from '@/modules/projects/server/procedures';
+
+export const appRouter = createTRPCRouter({
+  usage: usageRouter,
+  messages: messagesRouter,
+  projects: projectsRouter,
+});
+
+export type AppRouter = typeof appRouter;
+```
+
+**Key Features**:
+- Automatic type inference from server to client
+- SuperJSON transformer for complex types (Dates, BigInts)
+- Built-in authentication middleware
+- React Query integration for caching and optimistic updates
+
+### Convex Real-Time Database
+
+Convex provides real-time database operations with reactive queries that automatically update when data changes.
+
+**Location**: `convex/`
+
+**Core Function Types**:
+- **Queries**: Read operations that are reactive and cached
+- **Mutations**: Write operations that modify database state
+- **Actions**: Server-side logic with external API calls (Node.js runtime)
+
+**Example Query** (`convex/projects.ts:282`):
+```typescript
+export const get = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const project = await ctx.db.get(args.projectId);
+    
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    
+    if (project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+    
+    return project;
+  },
+});
+```
+
+## API Conventions
+
+### tRPC Conventions
+
+1. **Feature-Based Organization**: Routers are organized by domain in `src/modules/[feature]/server/procedures.ts`
+2. **Procedure Types**:
+   - `baseProcedure`: Public endpoints (no authentication)
+   - `protectedProcedure`: Authenticated endpoints (requires Clerk session)
+3. **Error Handling**: Use `TRPCError` with appropriate error codes
+
+### Convex Conventions
+
+1. **Function Syntax**: Always use object-based syntax with explicit `args` and `handler`
+2. **Validators**: Every argument must have a `v.*` validator from `convex/values`
+3. **Authentication**: Use `requireAuth(ctx)` at the start of protected handlers
+4. **Indexes**: Always use `withIndex()` for queries - never use `.filter()` for performance
+
+## Database Schema
+
+The database schema is defined in `convex/schema.ts` with type-safe table definitions:
+
+**Core Tables**:
+- `projects`: User projects with framework and settings
+- `messages`: Conversation messages for each project
+- `fragments`: Generated code fragments with sandbox URLs
+- `attachments`: Images and design files linked to messages
+- `usage`: Credit tracking for free/pro/unlimited tiers
+- `subscriptions`: Polar subscription data
+- `agentRuns`: AI agent execution tracking
+
+**Example Schema Definition**:
+```typescript
+projects: defineTable({
+  name: v.string(),
+  userId: v.string(),
+  framework: frameworkEnum,
+  modelPreference: v.optional(v.string()),
+  createdAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+})
+  .index("by_userId", ["userId"])
+  .index("by_userId_createdAt", ["userId", "createdAt"])
+```
+
+## Client Usage
+
+### Using tRPC in Client Components
+
+```typescript
+'use client';
+import { useTRPC } from '@/trpc/client';
+
+export function MyComponent() {
+  const { data, isLoading } = useTRPC.projects.list.useQuery();
+  const createMutation = useTRPC.projects.create.useMutation();
+  
+  // ... component logic
+}
+```
+
+### Using Convex in Client Components
+
+```typescript
+'use client';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+
+export function MyComponent() {
+  const projects = useQuery(api.projects.list);
+  const createProject = useMutation(api.projects.create);
+  
+  // ... component logic
+}
+```
+
+### Using in Server Components
+
+For **tRPC** in server components:
+```typescript
+import { caller } from '@/trpc/server';
+
+export async function MyServerComponent() {
+  const api = await caller();
+  const projects = await api.projects.list();
+  
+  return <div>{/* ... */}</div>;
+}
+```
+
+For **Convex** in server components:
+```typescript
+import { getConvexClientWithAuth } from '@/lib/auth-server';
+import { api } from '@/convex/_generated/api';
+
+export async function MyServerComponent() {
+  const convex = await getConvexClientWithAuth();
+  const projects = await convex.query(api.projects.list);
+  
+  return <div>{/* ... */}</div>;
+}
+```
+
+## Anti-Patterns
+
+**Never do this:**
+- Use `.filter()` in Convex queries (use indexes instead)
+- Call `ctx.db` inside a Convex action (use `ctx.runQuery` or `ctx.runMutation`)
+- Expose Clerk user IDs in public API responses
+- Use `any` type in function signatures
+- Perform side effects (API calls, emails) in queries/mutations (use actions)
+
+## Type Safety
+
+Both APIs provide full end-to-end type safety:
+
+- **tRPC**: Infers types from procedure definitions automatically
+- **Convex**: Generates types from schema in `convex/_generated/dataModel.d.ts`
+
+Use TypeScript's type inference to get autocomplete and type checking throughout your application.
+
+## Next Steps
+
+- [Authentication](/api/authentication) - Learn about Clerk JWT authentication
+- [Projects API](/api/projects) - Project management endpoints
+- [Messages API](/api/messages) - Conversation and chat operations
+- [Usage API](/api/usage) - Credit tracking and limits

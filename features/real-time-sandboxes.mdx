@@ -1,0 +1,478 @@
+---
+title: Real-Time E2B Sandboxes
+description: Isolated, secure execution environments powered by E2B Code Interpreter for safe code generation and testing
+---
+
+## Overview
+
+ZapDev uses [E2B (Execute to Build)](https://e2b.dev) to provide isolated sandbox environments where AI agents can safely generate, test, and validate code without affecting your local system.
+
+Each code generation session runs in a dedicated, pre-configured sandbox with all necessary dependencies installed and ready to use.
+
+<Info>
+E2B sandboxes are Docker-based microVMs that boot in seconds and provide a full Linux environment with Node.js, npm, and framework-specific tooling.
+</Info>
+
+## How E2B Sandboxes Work
+
+### Sandbox Lifecycle
+
+1. **Provisioning** - When you start a generation, a fresh E2B sandbox is created
+2. **Pre-warming** - Framework template loads with dependencies pre-installed
+3. **Code Generation** - AI writes files directly into the sandbox filesystem
+4. **Validation** - Build and lint commands execute in the sandbox
+5. **Cleanup** - Sandbox terminates after generation completes
+
+```typescript
+// From src/inngest/functions.ts
+const sandbox = await Sandbox.create("zapdev-nextjs");
+
+// Sandbox is now running with:
+// - Node.js 21
+// - Next.js 15.3.3
+// - Shadcn UI pre-installed
+// - Tailwind CSS configured
+// - TypeScript ready
+```
+
+### Pre-Warmed Templates
+
+ZapDev uses custom E2B templates for each framework to eliminate cold start times:
+
+<Tabs>
+  <Tab title="Next.js Template">
+    **Base Image**: `node:21-slim`
+    
+    **Pre-installed**:
+    - Next.js 15.3.3 with Turbopack
+    - Shadcn UI component library
+    - Tailwind CSS v4
+    - TypeScript strict mode
+    
+    **Startup Script**: `/compile_page.sh`
+    
+    ```bash
+    # sandbox-templates/nextjs/compile_page.sh
+    #!/bin/bash
+    
+    # Ping server until Next.js is ready
+    function ping_server() {
+      counter=0
+      response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000")
+      while [[ ${response} -ne 200 ]]; do
+        let counter++
+        if (( counter % 20 == 0 )); then
+          echo "Waiting for server to start..."
+          sleep 0.1
+        fi
+        response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000")
+      done
+    }
+    
+    ping_server &
+    cd /home/user && npx next dev --turbopack
+    ```
+    
+    **Port**: 3000
+  </Tab>
+  
+  <Tab title="Angular Template">
+    **Base Image**: `node:21-slim`
+    
+    **Pre-installed**:
+    - Angular CLI 19
+    - Angular Material
+    - Tailwind CSS with PostCSS
+    - TypeScript with strict mode
+    - Standalone components configured
+    
+    ```dockerfile
+    # sandbox-templates/angular/e2b.Dockerfile
+    FROM node:21-slim
+    
+    RUN apt-get update && apt-get install -y curl
+    WORKDIR /home/user
+    
+    # Install Angular CLI globally
+    RUN npm install -g @angular/cli@19
+    
+    # Create Angular app with routing and SCSS
+    RUN ng new angular-app --routing --style=scss \
+        --skip-git --package-manager=npm --defaults
+    
+    WORKDIR /home/user/angular-app
+    
+    # Install Angular Material and Tailwind
+    RUN ng add @angular/material --skip-confirmation --defaults
+    RUN npm install -D tailwindcss postcss autoprefixer
+    ```
+    
+    **Port**: 4200
+  </Tab>
+  
+  <Tab title="React Template">
+    **Base Image**: `node:21-slim`
+    
+    **Pre-installed**:
+    - Vite 5.x
+    - React 18
+    - Chakra UI
+    - Tailwind CSS
+    - TypeScript
+    
+    **Port**: 5173
+  </Tab>
+  
+  <Tab title="Vue Template">
+    **Base Image**: `node:21-slim`
+    
+    **Pre-installed**:
+    - Vite 5.x
+    - Vue 3 with Composition API
+    - Vuetify 3
+    - Tailwind CSS
+    - TypeScript
+    
+    **Port**: 5173
+  </Tab>
+  
+  <Tab title="Svelte Template">
+    **Base Image**: `node:21-slim`
+    
+    **Pre-installed**:
+    - SvelteKit
+    - DaisyUI (Tailwind components)
+    - Tailwind CSS
+    - TypeScript
+    
+    **Port**: 5173
+  </Tab>
+</Tabs>
+
+## Sandbox File System
+
+All code generation happens in the `/home/user` directory:
+
+```
+/home/user/
+├── app/                    # Next.js App Router
+│   ├── page.tsx           # Main entry point
+│   └── layout.tsx         # Root layout
+├── components/            # Custom components
+│   ├── ui/               # Shadcn UI (pre-installed)
+│   └── hero.tsx          # AI-generated
+├── lib/                   # Utilities
+│   └── utils.ts          # Helper functions
+├── public/                # Static assets
+├── package.json           # Dependencies
+├── tsconfig.json          # TypeScript config
+├── tailwind.config.ts     # Tailwind config
+└── next.config.mjs        # Next.js config
+```
+
+<Note>
+The AI uses **relative paths** only (e.g., `app/page.tsx`) when creating files. Absolute paths like `/home/user/app/page.tsx` are used internally for reading.
+</Note>
+
+## Sandbox Operations
+
+### File Operations
+
+AI agents interact with the sandbox filesystem through optimized tools:
+
+<CodeGroup>
+```python Batch File Write (Python)
+# E2B Python script for O(1) batch writes
+import json
+import sys
+
+files = json.loads(sys.argv[1])
+for path, content in files.items():
+    with open(path, 'w') as f:
+        f.write(content)
+```
+
+```typescript File Read (TypeScript)
+// Parallel file reading
+const files = await Promise.all([
+  sandbox.files.read('/home/user/app/page.tsx'),
+  sandbox.files.read('/home/user/components/hero.tsx')
+]);
+```
+</CodeGroup>
+
+### Terminal Commands
+
+The AI can execute commands in the sandbox:
+
+```bash
+# Install packages
+npm install framer-motion --yes
+
+# Run type checking
+npm run build
+
+# Lint code
+npm run lint
+
+# Check package versions
+npm list react next
+```
+
+<Warning>
+Dev servers (`npm run dev`) do NOT run in sandboxes. Code is validated through builds only. This is expected behavior.
+</Warning>
+
+## Security & Isolation
+
+E2B provides multiple layers of security:
+
+### Isolation Guarantees
+
+- ✅ **Network isolation** - No access to your local network
+- ✅ **Filesystem isolation** - Cannot access your files
+- ✅ **Process isolation** - Runs in dedicated microVM
+- ✅ **Resource limits** - CPU/memory caps prevent abuse
+- ✅ **Automatic cleanup** - Sandboxes are destroyed after use
+
+### What AI Can Do
+
+- ✅ Write files to `/home/user`
+- ✅ Install npm packages
+- ✅ Run build/lint commands
+- ✅ Read generated files
+- ✅ Execute Node.js scripts
+
+### What AI Cannot Do
+
+- ❌ Access your local filesystem
+- ❌ Make external API calls
+- ❌ Access environment variables (unless explicitly set)
+- ❌ Modify system files outside `/home/user`
+- ❌ Persist data after sandbox termination
+
+## Building Custom Templates
+
+You can build your own E2B templates for custom environments:
+
+### Prerequisites
+
+```bash
+# Install E2B CLI
+npm i -g @e2b/cli
+# or
+brew install e2b
+
+# Login to E2B
+e2b auth login
+```
+
+### Template Structure
+
+```
+sandbox-templates/nextjs/
+├── e2b.Dockerfile        # Docker build instructions
+├── compile_page.sh       # Startup script
+└── template.ts           # TypeScript types (optional)
+```
+
+### Build & Deploy
+
+```bash
+cd sandbox-templates/nextjs
+
+# Build template (requires Docker running)
+e2b template build --name zapdev-nextjs --cmd "/compile_page.sh"
+
+# Template is now available at runtime
+```
+
+### Use in Code
+
+```typescript
+// src/inngest/functions.ts
+const sandbox = await Sandbox.create("zapdev-nextjs");
+
+// Sandbox boots with:
+// - All dependencies pre-installed
+// - Dev server pre-warmed
+// - Ready to generate code immediately
+```
+
+## Performance Optimizations
+
+ZapDev implements several optimizations for faster sandboxes:
+
+### Pre-Warming Strategy
+
+Templates include startup scripts that pre-compile frameworks:
+
+```bash
+# Next.js pre-warming
+ping_server &  # Background process
+cd /home/user && npx next dev --turbopack
+
+# Server is ready when first request arrives
+# No cold start delay for AI code generation
+```
+
+### Batch File Operations
+
+Instead of writing files one-by-one (O(N) network calls), ZapDev uses Python scripts for batch operations:
+
+```python
+# Single API call writes multiple files
+writeFilesBatch({
+  "app/page.tsx": "...",
+  "components/hero.tsx": "...",
+  "lib/utils.ts": "..."
+})
+
+# vs. 3 separate API calls (slower)
+writeFile("app/page.tsx", "...")
+writeFile("components/hero.tsx", "...")
+writeFile("lib/utils.ts", "...")
+```
+
+### Parallel Validation
+
+Build and lint checks run concurrently when possible:
+
+```typescript
+// Parallel validation
+const [buildResult, lintResult] = await Promise.all([
+  sandbox.process.start({ cmd: 'npm run build' }),
+  sandbox.process.start({ cmd: 'npm run lint' })
+]);
+```
+
+## Sandbox Lifecycle Management
+
+### Creation
+
+```typescript
+import { Sandbox } from '@e2b/code-interpreter';
+
+const sandbox = await Sandbox.create('zapdev-nextjs');
+console.log('Sandbox ready:', sandbox.id);
+```
+
+### File Management
+
+```typescript
+// Write files
+await sandbox.files.write('/home/user/app/page.tsx', code);
+
+// Read files
+const content = await sandbox.files.read('/home/user/app/page.tsx');
+
+// List directory
+const files = await sandbox.files.list('/home/user/app');
+```
+
+### Process Execution
+
+```typescript
+// Run command
+const process = await sandbox.process.start({
+  cmd: 'npm install framer-motion --yes'
+});
+
+// Stream output
+process.stdout.on('data', (data) => {
+  console.log('stdout:', data);
+});
+
+await process.wait();
+```
+
+### Cleanup
+
+```typescript
+// Terminate sandbox
+await sandbox.kill();
+
+// Or use auto-cleanup
+try {
+  const sandbox = await Sandbox.create('zapdev-nextjs');
+  // ... do work
+} finally {
+  await sandbox.kill();
+}
+```
+
+## Cost & Resource Limits
+
+E2B sandboxes have the following limits:
+
+| Resource | Free Tier | Pro Tier |
+|----------|-----------|----------|
+| **Sandbox Lifetime** | 5 minutes | 15 minutes |
+| **Memory** | 512 MB | 2 GB |
+| **CPU** | 1 core | 2 cores |
+| **Disk Space** | 2 GB | 10 GB |
+| **Concurrent Sandboxes** | 1 | 5 |
+
+<Info>
+ZapDev automatically manages sandbox resources to stay within limits. Long-running generations may timeout on the free tier.
+</Info>
+
+## Troubleshooting
+
+<Accordion title="Sandbox takes too long to boot">
+  **Cause**: Template not pre-built or Docker not running
+  
+  **Solution**: 
+  1. Ensure Docker is running locally
+  2. Build template: `e2b template build --name your-template`
+  3. Verify template exists: `e2b template list`
+</Accordion>
+
+<Accordion title="Package installation fails">
+  **Cause**: Network issues or registry problems
+  
+  **Solution**:
+  ```bash
+  # Use --yes flag to skip prompts
+  npm install package-name --yes
+  
+  # Clear npm cache if needed
+  npm cache clean --force
+  ```
+</Accordion>
+
+<Accordion title="Build errors not auto-fixed">
+  **Cause**: Complex TypeScript errors or missing dependencies
+  
+  **Solution**: Check that dependencies are installed:
+  ```bash
+  npm run build 2>&1 | grep "Cannot find module"
+  npm install missing-package --yes
+  ```
+</Accordion>
+
+<Accordion title="Ports remain closed (expected)">
+  **Cause**: Dev servers don't run in sandboxes
+  
+  **Solution**: This is normal. Code is validated via `npm run build`, not runtime. Ports staying closed is expected behavior.
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="AI Code Generation" icon="wand-magic-sparkles" href="/features/ai-code-generation">
+    Learn how AI agents generate code in sandboxes
+  </Card>
+  
+  <Card title="Live Preview" icon="eye" href="/features/live-preview">
+    See how generated code renders in real-time
+  </Card>
+  
+  <Card title="File Explorer" icon="folder" href="/features/file-explorer">
+    Browse sandbox files with syntax highlighting
+  </Card>
+  
+  <Card title="Multi-Framework Support" icon="layer-group" href="/features/multi-framework-support">
+    Explore all pre-configured templates
+  </Card>
+</CardGroup>

@@ -1,0 +1,412 @@
+---
+title: Usage Tracking API
+description: API reference for managing credits and usage tracking in ZapDev
+---
+
+The Usage API manages the credit system that controls how many AI generations users can perform. Credits reset every 24 hours based on the user's plan tier.
+
+## Credit System Overview
+
+ZapDev uses a rolling 24-hour credit system:
+
+- **Free Plan**: 5 credits per 24 hours
+- **Pro Plan**: 100 credits per 24 hours
+- **Unlimited Plan**: Unlimited credits (no consumption)
+
+Each AI generation (creating a project or message) consumes **1 credit**.
+
+## Data Model
+
+<ResponseField name="_id" type="Id<'usage'>" required>
+  Unique identifier for the usage record
+</ResponseField>
+
+<ResponseField name="userId" type="string" required>
+  Clerk user ID
+</ResponseField>
+
+<ResponseField name="points" type="number" required>
+  Remaining credits
+</ResponseField>
+
+<ResponseField name="expire" type="number">
+  Timestamp when credits expire and reset (milliseconds)
+</ResponseField>
+
+<ResponseField name="planType" type="PlanType">
+  User's plan: `free`, `pro`, or `unlimited`
+</ResponseField>
+
+## Queries
+
+### getUsage
+
+Get current usage stats for the authenticated user.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+const usage = useQuery(api.usage.getUsage);
+
+if (usage) {
+  console.log(`${usage.points} / ${usage.maxPoints} credits remaining`);
+  console.log(`Resets in ${usage.msBeforeNext}ms`);
+}
+```
+
+**Arguments:** None
+
+**Returns:** Usage statistics object
+
+<ResponseField name="points" type="number">
+  Current remaining credits
+</ResponseField>
+
+<ResponseField name="maxPoints" type="number">
+  Maximum credits for the user's plan
+</ResponseField>
+
+<ResponseField name="expire" type="number">
+  Timestamp when credits expire (milliseconds)
+</ResponseField>
+
+<ResponseField name="planType" type="string">
+  User's plan type: `free`, `pro`, or `unlimited`
+</ResponseField>
+
+<ResponseField name="remainingPoints" type="number">
+  Alias for `points` (for compatibility)
+</ResponseField>
+
+<ResponseField name="creditsRemaining" type="number">
+  Alias for `points` (for compatibility)
+</ResponseField>
+
+<ResponseField name="msBeforeNext" type="number">
+  Milliseconds until credits reset
+</ResponseField>
+
+**Authentication:** Required
+
+**Note:** If no usage record exists or it has expired, returns full credits for the user's current plan.
+
+---
+
+### getUsageForUser
+
+Get usage for a specific user (for use from actions/background jobs).
+
+```typescript
+import { api } from '@/convex/_generated/api';
+
+const usage = await ctx.runQuery(api.usage.getUsageForUser, {
+  userId: "user_...",
+});
+```
+
+<ParamField path="userId" type="string" required>
+  The Clerk user ID
+</ParamField>
+
+**Returns:** Same usage statistics object as `getUsage`
+
+## Mutations
+
+### checkAndConsumeCredit
+
+Check if the user has credits and consume one if available.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
+
+const consumeCredit = useMutation(api.usage.checkAndConsumeCredit);
+
+const result = await consumeCredit({});
+
+if (result.success) {
+  console.log(`Credit consumed. ${result.remaining} remaining.`);
+} else {
+  console.error(result.message);
+}
+```
+
+**Arguments:** None (empty object)
+
+**Returns:** Result object
+
+<ResponseField name="success" type="boolean" required>
+  Whether the credit was successfully consumed
+</ResponseField>
+
+<ResponseField name="remaining" type="number" required>
+  Credits remaining after consumption (or current if failed)
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Error message if `success` is `false`
+</ResponseField>
+
+**Authentication:** Required
+
+**Behavior:**
+- If no usage record exists or it's expired, creates/resets with max credits and consumes 1
+- If user has unlimited plan, always succeeds without consuming
+- If insufficient credits, returns failure with time until reset
+- Updates the `points` field on success
+
+**Example Error Response:**
+```typescript
+{
+  success: false,
+  remaining: 0,
+  message: "Insufficient credits. Your credits will reset in 143 minutes."
+}
+```
+
+---
+
+### checkAndConsumeCreditForUser
+
+Check and consume credit for a specific user (for use from actions).
+
+```typescript
+import { api } from '@/convex/_generated/api';
+
+const result = await ctx.runMutation(api.usage.checkAndConsumeCreditForUser, {
+  userId: "user_...",
+});
+```
+
+<ParamField path="userId" type="string" required>
+  The Clerk user ID
+</ParamField>
+
+**Returns:** Same result object as `checkAndConsumeCredit`
+
+---
+
+### resetUsage
+
+Admin function to reset usage for a user.
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
+
+const resetUsage = useMutation(api.usage.resetUsage);
+
+await resetUsage({
+  userId: "user_...",
+});
+```
+
+<ParamField path="userId" type="string" required>
+  The Clerk user ID to reset usage for
+</ParamField>
+
+**Returns:** `undefined`
+
+**Note:** In production, this should have admin authorization checks. Currently deletes the usage record, which will cause it to be recreated with full credits on next use.
+
+## Plan Detection
+
+The usage system automatically detects the user's plan tier by checking:
+
+1. **Unlimited Access**: Checks if user has an unlimited subscription
+2. **Pro Access**: Checks if user has an active Pro subscription
+3. **Free Plan**: Default if no active subscription
+
+Plan detection is handled internally via the `hasProAccess` and `hasUnlimitedAccess` helper functions from `convex/helpers.ts`.
+
+## Credit Constants
+
+```typescript
+// convex/usage.ts
+const FREE_POINTS = 5;
+const PRO_POINTS = 100;
+const UNLIMITED_POINTS = Number.MAX_SAFE_INTEGER;
+const DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const GENERATION_COST = 1;
+```
+
+## Database Schema
+
+The `usage` table has the following indexes:
+
+```typescript
+// convex/schema.ts
+usage: defineTable({
+  userId: v.string(),
+  points: v.number(),
+  expire: v.optional(v.number()),
+  planType: v.optional(
+    v.union(
+      v.literal("free"),
+      v.literal("pro"),
+      v.literal("unlimited")
+    )
+  ),
+})
+  .index("by_userId", ["userId"])
+  .index("by_expire", ["expire"])
+```
+
+## Example Usage
+
+### Display credit counter
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+
+function CreditCounter() {
+  const usage = useQuery(api.usage.getUsage);
+
+  if (!usage) return <div>Loading...</div>;
+
+  const hoursUntilReset = Math.floor(usage.msBeforeNext / (1000 * 60 * 60));
+  const minutesUntilReset = Math.floor(
+    (usage.msBeforeNext % (1000 * 60 * 60)) / (1000 * 60)
+  );
+
+  return (
+    <div>
+      <h3>Credits</h3>
+      <p>
+        {usage.points} / {usage.maxPoints}
+      </p>
+      <p>Plan: {usage.planType}</p>
+      <p>
+        Resets in {hoursUntilReset}h {minutesUntilReset}m
+      </p>
+    </div>
+  );
+}
+```
+
+### Check credits before action
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { useQuery, useMutation } from 'convex/react';
+
+function CreateProjectButton() {
+  const usage = useQuery(api.usage.getUsage);
+  const consumeCredit = useMutation(api.usage.checkAndConsumeCredit);
+
+  const handleCreate = async () => {
+    const result = await consumeCredit({});
+    
+    if (!result.success) {
+      alert(result.message);
+      return;
+    }
+
+    // Proceed with project creation
+    console.log('Credit consumed, creating project...');
+  };
+
+  const canCreate = usage && usage.points > 0;
+
+  return (
+    <button onClick={handleCreate} disabled={!canCreate}>
+      Create Project
+      {usage && ` (${usage.points} credits)`}
+    </button>
+  );
+}
+```
+
+### Usage in actions
+
+```typescript
+import { api } from '@/convex/_generated/api';
+import { action } from './_generated/server';
+
+export const myAction = action({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error('Unauthorized');
+    
+    const userId = identity.subject;
+
+    // Check credits
+    const usage = await ctx.runQuery(api.usage.getUsageForUser, { userId });
+    if (usage.creditsRemaining <= 0) {
+      throw new Error('You have run out of credits');
+    }
+
+    // Consume credit
+    const result = await ctx.runMutation(
+      api.usage.checkAndConsumeCreditForUser,
+      { userId }
+    );
+
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to consume credit');
+    }
+
+    // Proceed with action
+    console.log('Credit consumed, proceeding...');
+  },
+});
+```
+
+## Credit Reset Logic
+
+Credits reset automatically using a rolling 24-hour window:
+
+1. When a user first consumes a credit, an `expire` timestamp is set to `now + 24 hours`
+2. On subsequent checks, if `expire < now`, the usage is reset with full credits and a new expiry time
+3. The `expire` field is indexed for efficient cleanup queries
+
+**Example Flow:**
+
+```typescript
+// Day 1, 10:00 AM - First generation
+usage = {
+  userId: "user_123",
+  points: 4,           // 5 - 1
+  expire: 1234567890,  // 10:00 AM next day
+  planType: "free"
+}
+
+// Day 1, 2:00 PM - Second generation
+usage = {
+  userId: "user_123",
+  points: 3,           // 4 - 1
+  expire: 1234567890,  // Still 10:00 AM next day
+  planType: "free"
+}
+
+// Day 2, 10:01 AM - After expiry
+usage = {
+  userId: "user_123",
+  points: 4,           // Reset to 5, consumed 1
+  expire: 1234654290,  // New 24h window (10:01 AM day 3)
+  planType: "free"
+}
+```
+
+## Integration with Project/Message Creation
+
+The usage system is automatically integrated into:
+
+- `api.projects.createWithMessage`
+- `api.projects.createWithMessageAndAttachments`
+- `api.messages.createWithAttachments`
+
+These actions automatically check and consume credits before proceeding:
+
+```typescript
+// Example from projects.ts
+const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
+if (creditResult.creditsRemaining <= 0) {
+  throw new Error("You have run out of credits");
+}
+
+await ctx.runMutation(api.usage.checkAndConsumeCreditForUser, { userId });
+```

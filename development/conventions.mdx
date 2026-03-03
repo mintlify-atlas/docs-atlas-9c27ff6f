@@ -1,0 +1,470 @@
+---
+title: "Code Conventions"
+description: "Code conventions, best practices, and style guidelines for ZapDev"
+---
+
+## Package Management
+
+<Warning>
+**CRITICAL**: ALWAYS use `bun` as the package manager. NEVER use `npm`, `pnpm`, or `yarn` for this project.
+</Warning>
+
+```bash
+# Correct
+bun install
+bun add package-name
+bun run dev
+
+# WRONG - Do not use
+npm install        # ❌
+pnpm install       # ❌
+yarn install       # ❌
+```
+
+## TypeScript Standards
+
+### Strict Mode
+
+ZapDev uses TypeScript strict mode with specific configurations:
+
+- **Strict Mode**: Enabled
+- **No `any`**: Warn only (avoid when possible)
+- **Null Checks**: Strict null checking enabled
+
+### Type Safety Rules
+
+<Check>Always define explicit return types for functions</Check>
+<Check>Use type inference where obvious</Check>
+<Check>Prefer `interface` for object shapes</Check>
+<Check>Prefer `type` for unions and intersections</Check>
+
+```typescript
+// Good - Explicit return type
+function calculateCredits(userId: string): number {
+  return 5;
+}
+
+// Good - Type inference is clear
+const credits = 5;
+
+// Avoid - using 'any'
+function processData(data: any) { }  // ❌
+
+// Better - use proper types
+function processData(data: ProjectData) { }  // ✅
+```
+
+### Path Aliases
+
+Use configured path aliases for clean imports:
+
+- `@/*` → `src/*`
+- `@/convex/*` → `convex/*`
+
+```typescript
+// Good
+import { api } from '@/convex/_generated/api';
+import { Button } from '@/components/ui/button';
+import { trpc } from '@/lib/trpc';
+
+// Avoid relative paths
+import { Button } from '../../../components/ui/button';  // ❌
+```
+
+## Code Style
+
+### Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|----------|
+| Components | PascalCase | `ProjectCard`, `FileExplorer` |
+| Functions | camelCase | `getUserUsage`, `createProject` |
+| Constants | SCREAMING_SNAKE_CASE | `CREDIT_LIMITS`, `API_VERSION` |
+| Types/Interfaces | PascalCase | `ProjectData`, `UserSession` |
+| Files | kebab-case | `code-agent.ts`, `file-operations.ts` |
+| Folders | kebab-case | `api-reference`, `sandbox-templates` |
+
+### File Organization
+
+**Feature-Based Modules**: Each module has `ui/` and `server/` subdirectories:
+
+```
+src/modules/
+├── projects/
+│   ├── ui/              # UI components for projects
+│   └── server/          # Server procedures for projects
+├── messages/
+│   ├── ui/
+│   └── server/
+└── usage/
+    ├── ui/
+    └── server/
+```
+
+## React Conventions
+
+### Component Structure
+
+```typescript
+// 1. Imports (grouped)
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { trpc } from '@/lib/trpc';
+import type { ProjectData } from '@/types';
+
+// 2. Types/Interfaces
+interface ProjectCardProps {
+  project: ProjectData;
+  onSelect: (id: string) => void;
+}
+
+// 3. Component
+export function ProjectCard({ project, onSelect }: ProjectCardProps) {
+  // Hooks first
+  const [isHovered, setIsHovered] = useState(false);
+  const { data } = trpc.projects.getById.useQuery({ id: project.id });
+  
+  // Effects
+  useEffect(() => {
+    // Effect logic
+  }, []);
+  
+  // Event handlers
+  const handleClick = () => {
+    onSelect(project.id);
+  };
+  
+  // Render
+  return (
+    <div onClick={handleClick}>
+      {/* JSX */}
+    </div>
+  );
+}
+```
+
+### Hooks Rules
+
+<Check>Always call hooks at the top level</Check>
+<Check>Use custom hooks for shared logic</Check>
+<Check>Name custom hooks with `use` prefix</Check>
+
+```typescript
+// Good - custom hook
+function useProjectData(projectId: string) {
+  const { data, isLoading } = trpc.projects.getById.useQuery({ id: projectId });
+  return { project: data, isLoading };
+}
+
+// Usage
+function ProjectView({ projectId }: { projectId: string }) {
+  const { project, isLoading } = useProjectData(projectId);
+  // ...
+}
+```
+
+## Convex Conventions
+
+### Authentication
+
+Always use `requireAuth(ctx)` in Convex functions:
+
+```typescript
+import { requireAuth } from '@/convex/lib/auth';
+import { query, mutation } from './_generated/server';
+
+export const getProjects = query(async (ctx) => {
+  const userId = await requireAuth(ctx);
+  
+  return await ctx.db
+    .query('projects')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .collect();
+});
+```
+
+### Database Queries
+
+<Warning>
+**NEVER** use `.filter()` in Convex queries. Always use indexes.
+</Warning>
+
+```typescript
+// Bad - Using filter
+const projects = await ctx.db
+  .query('projects')
+  .filter((q) => q.eq(q.field('userId'), userId))  // ❌
+  .collect();
+
+// Good - Using index
+const projects = await ctx.db
+  .query('projects')
+  .withIndex('by_user', (q) => q.eq('userId', userId))  // ✅
+  .collect();
+```
+
+## Anti-Patterns
+
+Things to **NEVER** do in ZapDev:
+
+<Warning>
+### Package Management
+- ❌ NEVER use `npm`, `pnpm`, or `yarn`
+- ✅ ALWAYS use `bun`
+</Warning>
+
+<Warning>
+### Database
+- ❌ NEVER use `.filter()` in Convex queries
+- ✅ ALWAYS use indexes
+</Warning>
+
+<Warning>
+### Security
+- ❌ NEVER expose Clerk user IDs in public APIs
+- ❌ NEVER use absolute paths in AI-generated code (e.g., `/home/user/...`)
+- ✅ ALWAYS validate and sanitize user inputs with Zod
+</Warning>
+
+<Warning>
+### E2B Sandboxes
+- ❌ NEVER start dev servers in E2B sandboxes
+- ✅ Pre-warm sandboxes with `compile_page.sh`
+</Warning>
+
+<Warning>
+### Documentation
+- ❌ NEVER create `.md` files in root directory
+- ✅ ALWAYS place documentation in `explanations/`
+</Warning>
+
+<Warning>
+### Styling
+- ❌ DO NOT load Tailwind as external stylesheet
+- ✅ Use Tailwind CSS v4 with PostCSS
+</Warning>
+
+<Warning>
+### TypeScript
+- ❌ DO NOT use `as` or `any` to bypass type errors
+- ✅ Fix the underlying type issue
+</Warning>
+
+<Warning>
+### Development
+- ❌ DO NOT run `bun convex dev` without user permission
+- ✅ Ask before starting background services
+</Warning>
+
+## Security Best Practices
+
+### Input Validation
+
+Always validate inputs using Zod:
+
+```typescript
+import { z } from 'zod';
+
+const createProjectSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  framework: z.enum(['nextjs', 'react', 'vue', 'angular', 'svelte'])
+});
+
+export const createProject = mutation({
+  args: createProjectSchema,
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    // Safe to use validated args
+  }
+});
+```
+
+### File Path Sanitization
+
+Always sanitize file paths:
+
+```typescript
+import { sanitizePath } from '@/lib/sanitizers';
+
+// Remove directory traversal attempts
+const safePath = sanitizePath(userProvidedPath);
+```
+
+### Environment Variables
+
+Never commit secrets:
+
+```typescript
+// Good - using environment variables
+const apiKey = process.env.E2B_API_KEY;
+
+// Bad - hardcoded secrets
+const apiKey = 'sk_123456789';  // ❌
+```
+
+## Documentation Standards
+
+### Code Comments
+
+```typescript
+/**
+ * Checks if user has available credits and consumes one.
+ * Throws error if user has no credits remaining.
+ * 
+ * @param userId - The authenticated user's ID
+ * @returns Promise that resolves when credit is consumed
+ * @throws Error when user has no credits
+ */
+export async function consumeCredit(userId: string): Promise<void> {
+  // Implementation
+}
+```
+
+### JSDoc for Public APIs
+
+Use JSDoc for all exported functions and types:
+
+```typescript
+/**
+ * Configuration for framework-specific code generation
+ */
+export interface FrameworkConfig {
+  /** Framework identifier */
+  name: string;
+  /** Default UI library for this framework */
+  uiLibrary: string;
+  /** Build command */
+  buildCommand: string;
+}
+```
+
+## Git Workflow
+
+### Branch Naming
+
+- `feature/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation updates
+- `refactor/` - Code refactoring
+- `test/` - Test additions/updates
+
+### Commit Messages
+
+Follow conventional commits:
+
+```bash
+feat: add framework selection dialog
+fix: resolve E2B sandbox timeout
+docs: update API reference
+refactor: extract credit logic to separate module
+test: add tests for usage tracking
+chore: update dependencies
+```
+
+## Performance Guidelines
+
+### React Performance
+
+```typescript
+// Use React.memo for expensive components
+export const FileExplorer = React.memo(({ files }: FileExplorerProps) => {
+  // Component logic
+});
+
+// Use useCallback for event handlers
+const handleFileSelect = useCallback((fileId: string) => {
+  onFileSelect(fileId);
+}, [onFileSelect]);
+
+// Use useMemo for expensive computations
+const sortedFiles = useMemo(() => {
+  return files.sort((a, b) => a.name.localeCompare(b.name));
+}, [files]);
+```
+
+### Database Performance
+
+```typescript
+// Good - indexed query
+const recentProjects = await ctx.db
+  .query('projects')
+  .withIndex('by_user_created', (q) => 
+    q.eq('userId', userId).gt('createdAt', thirtyDaysAgo)
+  )
+  .take(10);
+
+// Consider pagination for large datasets
+const projects = await ctx.db
+  .query('projects')
+  .withIndex('by_user', (q) => q.eq('userId', userId))
+  .paginate({ cursor, numItems: 20 });
+```
+
+## Testing Conventions
+
+See [Testing Guide](./testing) for comprehensive testing practices.
+
+Key points:
+- Use centralized mocks in `tests/mocks/`
+- Follow Arrange-Act-Assert pattern
+- Name tests descriptively: `it('should return 5 credits for free tier users')`
+- Mock external dependencies (E2B, Convex, Inngest)
+
+## UI/UX Guidelines
+
+### Shadcn/ui Components
+
+ZapDev uses Shadcn/ui (copy/paste components, not a library):
+
+```typescript
+// Import from components/ui
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+
+// Use consistently
+<Button variant="default" size="lg">
+  Create Project
+</Button>
+```
+
+### Tailwind CSS
+
+Use Tailwind v4 utility classes:
+
+```tsx
+// Good - utility classes
+<div className="flex items-center gap-4 p-6 rounded-lg bg-background">
+  {/* content */}
+</div>
+
+// Avoid inline styles
+<div style={{ display: 'flex', padding: '24px' }}>  // ❌
+```
+
+## Framework-Specific Guidelines
+
+### Default Framework
+
+Next.js 15 is the default framework unless user specifies otherwise:
+
+- **Next.js 15** - Default for web apps
+- **Angular 19** - Material Design, enterprise apps
+- **React 18** - Vite + Chakra UI
+- **Vue 3** - Vuetify
+- **SvelteKit** - DaisyUI
+
+### Framework Detection
+
+See `src/prompts/framework-selector.ts` for AI framework selection logic.
+
+## Resources
+
+- [AGENTS.md](https://github.com/codewithantonio/zapdev/blob/main/AGENTS.md) - Complete codebase reference
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
+- [Convex Best Practices](https://docs.convex.dev/production/best-practices)
+- [React Best Practices](https://react.dev/learn)
+
+---
+
+Following these conventions ensures code quality, maintainability, and consistency across the ZapDev codebase.

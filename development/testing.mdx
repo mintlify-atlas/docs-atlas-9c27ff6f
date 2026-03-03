@@ -1,0 +1,344 @@
+---
+title: "Testing Guide"
+description: "Testing setup, practices, and guidelines for ZapDev"
+---
+
+## Testing Philosophy
+
+ZapDev uses a **mock-first testing** approach with centralized mocks for external dependencies. All tests run in a Node environment (not DOM) using Jest and ts-jest.
+
+## Test Setup
+
+### Running Tests
+
+```bash
+# Run all tests
+bun run test
+
+# Run tests in watch mode
+bun run test --watch
+
+# Run tests with coverage
+bun run test --coverage
+
+# Run specific test file
+bun run test tests/credit-system.test.ts
+```
+
+### Test Configuration
+
+Our Jest configuration is defined in `jest.config.js`:
+
+```javascript
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/tests'],
+  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  transform: {
+    '^.+\.ts$': 'ts-jest',
+  },
+  moduleNameMapper: {
+    '^@/convex/_generated/api$': '<rootDir>/tests/mocks/convex-generated-api.ts',
+    '^@/convex/_generated/dataModel$': '<rootDir>/tests/mocks/convex-generated-dataModel.ts',
+    '^@/convex/(.*)$': '<rootDir>/convex/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@inngest/agent-kit$': '<rootDir>/tests/mocks/inngest-agent-kit.ts',
+    '^@e2b/code-interpreter$': '<rootDir>/tests/mocks/e2b-code-interpreter.ts',
+    '^convex/browser$': '<rootDir>/tests/mocks/convex-browser.ts',
+  },
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/generated/**',
+  ],
+  moduleFileExtensions: ['ts', 'js', 'json'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+};
+```
+
+## Test Structure
+
+### Test Organization
+
+Tests are located in the `/tests` directory with the following structure:
+
+```
+tests/
+├── mocks/                           # Centralized mocks
+│   ├── convex-browser.ts
+│   ├── convex-generated-api.ts
+│   ├── convex-generated-dataModel.ts
+│   ├── e2b-code-interpreter.ts
+│   └── inngest-agent-kit.ts
+├── agent-improvements.test.ts       # AI agent enhancement tests
+├── agent-workflow.test.ts           # Agent workflow tests
+├── auth-helpers.test.ts             # Authentication tests
+├── credit-system.test.ts            # Credit/usage tracking tests
+├── file-operations.test.ts          # File handling tests
+├── frameworks.test.ts               # Framework selection tests
+├── gateway-fallback.test.ts         # API gateway failover tests
+├── glm-subagent-system.test.ts      # GLM subagent tests
+├── model-selection.test.ts          # Model selection tests
+├── sanitizers.test.ts               # Input validation tests
+├── security.test.ts                 # Security tests
+├── setup.ts                         # Test setup configuration
+└── utils.test.ts                    # Utility function tests
+```
+
+### Test File Naming
+
+- Unit tests: `*.test.ts`
+- Integration tests: `*.integration.test.ts`
+- Test utilities: `*.spec.ts`
+
+## Writing Tests
+
+### Basic Test Structure
+
+```typescript
+import { describe, it, expect, beforeEach } from '@jest/globals';
+
+describe('Feature Name', () => {
+  beforeEach(() => {
+    // Setup before each test
+  });
+
+  describe('Specific Functionality', () => {
+    it('should do something specific', () => {
+      // Arrange
+      const input = 'test';
+      
+      // Act
+      const result = someFunction(input);
+      
+      // Assert
+      expect(result).toBe('expected');
+    });
+  });
+});
+```
+
+### Using Mocks
+
+All external dependencies are mocked in `tests/mocks/`:
+
+```typescript
+// E2B sandbox operations are automatically mocked
+import { Sandbox } from '@e2b/code-interpreter';
+
+// Convex queries/mutations are mocked
+import { api } from '@/convex/_generated/api';
+
+// Inngest workflows are mocked
+import { inngest } from '@inngest/agent-kit';
+```
+
+### Example: Testing Credit System
+
+```typescript
+import { describe, it, expect, beforeEach } from '@jest/globals';
+
+const CREDIT_LIMITS = {
+  free: 5,
+  pro: 100
+};
+
+describe('Credit System', () => {
+  let creditSystem: CreditSystem;
+
+  beforeEach(() => {
+    creditSystem = new CreditSystem();
+  });
+
+  describe('Free Tier Credits', () => {
+    it('should give 5 credits to free tier users', async () => {
+      await creditSystem.createUsageRecord('user_1', 'free', 0);
+      
+      const usage = await creditSystem.getUsageForUser('user_1');
+      
+      expect(usage.creditsRemaining).toBe(5);
+      expect(usage.creditsLimit).toBe(5);
+      expect(usage.planType).toBe('free');
+    });
+
+    it('should throw error when free credits exhausted', async () => {
+      await creditSystem.createUsageRecord('user_3', 'free', 5);
+      
+      await expect(
+        creditSystem.checkAndConsumeCreditForUser('user_3')
+      ).rejects.toThrow('You have run out of credits');
+    });
+  });
+});
+```
+
+## Testing Best Practices
+
+### DO's
+
+<Check>Test one thing per test case</Check>
+<Check>Use descriptive test names that explain the expected behavior</Check>
+<Check>Follow the Arrange-Act-Assert pattern</Check>
+<Check>Mock external dependencies using centralized mocks</Check>
+<Check>Test edge cases and error conditions</Check>
+<Check>Keep tests isolated and independent</Check>
+
+### DON'Ts
+
+<Warning>Don't test implementation details</Warning>
+<Warning>Don't skip tests or use `.only` in committed code</Warning>
+<Warning>Don't use real API calls or database connections</Warning>
+<Warning>Don't write tests that depend on execution order</Warning>
+<Warning>Don't use `any` type in test code</Warning>
+
+## Testing Different Layers
+
+### Testing Utilities
+
+Test pure functions with simple input/output:
+
+```typescript
+import { sanitizePath } from '@/lib/sanitizers';
+
+describe('sanitizePath', () => {
+  it('should remove leading slashes', () => {
+    expect(sanitizePath('/path/to/file')).toBe('path/to/file');
+  });
+
+  it('should handle relative paths', () => {
+    expect(sanitizePath('../../../etc/passwd')).toBe('etc/passwd');
+  });
+});
+```
+
+### Testing tRPC Procedures
+
+Test tRPC routers with mocked context:
+
+```typescript
+import { appRouter } from '@/trpc/routers/_app';
+
+const mockContext = {
+  userId: 'user_123',
+  session: { /* mock session */ }
+};
+
+const caller = appRouter.createCaller(mockContext);
+
+it('should fetch project by id', async () => {
+  const project = await caller.projects.getById({ id: 'proj_1' });
+  expect(project.id).toBe('proj_1');
+});
+```
+
+### Testing AI Agents
+
+Test agent orchestration logic with mocked E2B sandboxes:
+
+```typescript
+import { generateCode } from '@/agents/code-agent';
+
+it('should generate Next.js application', async () => {
+  const result = await generateCode({
+    prompt: 'Create a todo app',
+    framework: 'nextjs'
+  });
+  
+  expect(result.files).toContain('app/page.tsx');
+  expect(result.success).toBe(true);
+});
+```
+
+### Testing Convex Functions
+
+Test Convex queries and mutations:
+
+```typescript
+import { getUserUsage } from '@/convex/usage';
+
+it('should return usage for authenticated user', async () => {
+  const usage = await getUserUsage({ userId: 'user_1' });
+  
+  expect(usage.creditsRemaining).toBeGreaterThanOrEqual(0);
+  expect(usage.planType).toMatch(/^(free|pro)$/);
+});
+```
+
+## Coverage Goals
+
+- **Overall Coverage**: Aim for 80%+ code coverage
+- **Critical Paths**: 100% coverage for:
+  - Authentication logic
+  - Credit/usage tracking
+  - Security validations
+  - File sanitization
+- **Nice to Have**: High coverage for:
+  - UI components (70%+)
+  - Utility functions (90%+)
+  - API routes (80%+)
+
+## Continuous Integration
+
+Tests run automatically on:
+
+- Every pull request
+- Every commit to main branch
+- Before deployment
+
+<Info>
+All CI checks must pass before a PR can be merged.
+</Info>
+
+## Debugging Tests
+
+### Running Tests in Debug Mode
+
+```bash
+# Use Node inspector
+node --inspect-brk node_modules/.bin/jest --runInBand
+
+# Add console.log statements
+console.log('Debug value:', someValue);
+
+# Use VSCode debugger with breakpoints
+```
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Mock not working | Check `moduleNameMapper` in `jest.config.js` |
+| Type errors in tests | Ensure `@types/jest` is installed |
+| Timeout errors | Increase timeout: `jest.setTimeout(10000)` |
+| Path resolution | Verify `@/*` aliases in tsconfig |
+
+## Test Maintenance
+
+<Steps>
+  <Step title="Keep Tests Updated">
+    When you change code, update the corresponding tests
+  </Step>
+
+  <Step title="Remove Obsolete Tests">
+    Delete tests for removed features
+  </Step>
+
+  <Step title="Refactor Tests">
+    Keep tests DRY by extracting common setup to helpers
+  </Step>
+
+  <Step title="Monitor Coverage">
+    Review coverage reports regularly
+  </Step>
+</Steps>
+
+## Resources
+
+- [Jest Documentation](https://jestjs.io/docs/getting-started)
+- [ts-jest Documentation](https://kulshekhar.github.io/ts-jest/)
+- [Testing Best Practices](https://testingjavascript.com/)
+
+---
+
+Well-tested code is maintainable code. Happy testing!

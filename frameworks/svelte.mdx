@@ -1,0 +1,565 @@
+---
+title: "SvelteKit with DaisyUI"
+description: "Build high-performance applications with SvelteKit, DaisyUI, and Tailwind CSS"
+---
+
+SvelteKit with DaisyUI provides a compiler-based framework for building blazing-fast web applications with minimal bundle sizes.
+
+## Overview
+
+SvelteKit compiles your code to highly optimized vanilla JavaScript, resulting in smaller bundles and better runtime performance.
+
+### Pre-installed Packages
+
+- **SvelteKit**: Full-stack framework with file-based routing
+- **Svelte**: Compiler-based UI framework
+- **DaisyUI**: Tailwind CSS component library
+- **Tailwind CSS**: Utility-first CSS framework
+- **TypeScript**: Full type safety
+- **Vite**: Fast development server and build tool
+
+### Key Features
+
+- Compile-time framework (no virtual DOM)
+- Reactive declarations with `$:`
+- Built-in state management
+- File-based routing
+- Server-side rendering
+- Zero-config setup
+- Smallest bundle sizes
+
+## Use Cases
+
+SvelteKit is best suited for:
+
+<CardGroup cols={2}>
+  <Card title="Performance-Critical Apps" icon="zap">
+    Applications requiring minimal bundle size and maximum performance
+  </Card>
+  
+  <Card title="Fast Websites" icon="rocket">
+    Sites that prioritize loading speed and runtime performance
+  </Card>
+  
+  <Card title="Simple Syntax Projects" icon="code">
+    Projects that benefit from Svelte's straightforward syntax
+  </Card>
+  
+  <Card title="Full-Stack Apps" icon="server">
+    Applications using SvelteKit's server-side capabilities
+  </Card>
+</CardGroup>
+
+## DaisyUI Components
+
+DaisyUI is a plugin for Tailwind CSS that provides semantic component classes without JavaScript dependencies.
+
+### Available Components
+
+- **Actions**: Button, Dropdown, Modal, Swap
+- **Data Display**: Accordion, Avatar, Badge, Card, Carousel, Chat Bubble, Collapse, Countdown, Kbd, Stat, Table, Timeline
+- **Navigation**: Breadcrumbs, Bottom Navigation, Link, Menu, Navbar, Pagination, Steps, Tabs
+- **Feedback**: Alert, Loading, Progress, Radial Progress, Skeleton, Toast, Tooltip
+- **Data Input**: Checkbox, File Input, Radio, Range, Rating, Select, Text Input, Textarea, Toggle
+- **Layout**: Artboard, Divider, Drawer, Footer, Hero, Indicator, Join, Mask, Stack
+- **Mockup**: Browser, Code, Phone, Window
+
+### Component Usage
+
+<Tabs>
+  <Tab title="Button">
+    ```svelte
+    <script lang="ts">
+      function handleClick() {
+        console.log('Button clicked');
+      }
+    </script>
+
+    <div class="flex gap-2">
+      <button class="btn">Default</button>
+      <button class="btn btn-primary">Primary</button>
+      <button class="btn btn-secondary">Secondary</button>
+      <button class="btn btn-accent">Accent</button>
+      <button class="btn btn-ghost">Ghost</button>
+      <button class="btn btn-link">Link</button>
+      <button class="btn" on:click={handleClick}>Click Me</button>
+    </div>
+    ```
+  </Tab>
+  
+  <Tab title="Card">
+    ```svelte
+    <script lang="ts">
+      export let title = 'Card Title';
+      export let description = 'Card description';
+    </script>
+
+    <div class="card w-96 bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">{title}</h2>
+        <p>{description}</p>
+        <div class="card-actions justify-end">
+          <button class="btn btn-primary">Action</button>
+        </div>
+      </div>
+    </div>
+    ```
+  </Tab>
+  
+  <Tab title="Form">
+    ```svelte
+    <script lang="ts">
+      let email = '';
+      let password = '';
+      let emailError = '';
+      let passwordError = '';
+
+      function validateEmail(value: string) {
+        if (!value) return 'Email is required';
+        if (!value.includes('@')) return 'Invalid email';
+        return '';
+      }
+
+      function validatePassword(value: string) {
+        if (!value) return 'Password is required';
+        if (value.length < 8) return 'Password must be at least 8 characters';
+        return '';
+      }
+
+      function handleSubmit(e: Event) {
+        e.preventDefault();
+        emailError = validateEmail(email);
+        passwordError = validatePassword(password);
+
+        if (!emailError && !passwordError) {
+          console.log('Form submitted', { email, password });
+        }
+      }
+
+      $: emailError = email ? validateEmail(email) : '';
+      $: passwordError = password ? validatePassword(password) : '';
+    </script>
+
+    <form on:submit={handleSubmit} class="space-y-4">
+      <div class="form-control">
+        <label class="label" for="email">
+          <span class="label-text">Email</span>
+        </label>
+        <input
+          id="email"
+          type="email"
+          bind:value={email}
+          class="input input-bordered"
+          class:input-error={emailError}
+        />
+        {#if emailError}
+          <label class="label">
+            <span class="label-text-alt text-error">{emailError}</span>
+          </label>
+        {/if}
+      </div>
+
+      <div class="form-control">
+        <label class="label" for="password">
+          <span class="label-text">Password</span>
+        </label>
+        <input
+          id="password"
+          type="password"
+          bind:value={password}
+          class="input input-bordered"
+          class:input-error={passwordError}
+        />
+        {#if passwordError}
+          <label class="label">
+            <span class="label-text-alt text-error">{passwordError}</span>
+          </label>
+        {/if}
+      </div>
+
+      <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+    ```
+  </Tab>
+  
+  <Tab title="Modal">
+    ```svelte
+    <script lang="ts">
+      let showModal = false;
+
+      function openModal() {
+        showModal = true;
+      }
+
+      function closeModal() {
+        showModal = false;
+      }
+
+      function confirmDelete() {
+        console.log('Item deleted');
+        closeModal();
+      }
+    </script>
+
+    <button class="btn" on:click={openModal}>Open Modal</button>
+
+    {#if showModal}
+      <div class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="font-bold text-lg">Delete Confirmation</h3>
+          <p class="py-4">Are you sure you want to delete this item?</p>
+          <div class="modal-action">
+            <button class="btn" on:click={closeModal}>Cancel</button>
+            <button class="btn btn-error" on:click={confirmDelete}>Delete</button>
+          </div>
+        </div>
+      </div>
+    {/if}
+    ```
+  </Tab>
+</Tabs>
+
+## Critical Rules
+
+<Info>
+  **Main File**: The main page is `src/routes/+page.svelte`. Layout is in `src/routes/+layout.svelte`.
+</Info>
+
+<Warning>
+  **Pre-installed**: DaisyUI and Tailwind CSS are already installed. Do not run installation commands for these packages.
+</Warning>
+
+### File Conventions
+
+- **Page files**: `+page.svelte` (in routes/)
+- **Layout files**: `+layout.svelte` (in routes/)
+- **Component files**: `ComponentName.svelte` (PascalCase)
+- **Components directory**: `src/lib/components/`
+- **Utilities directory**: `src/lib/utils/`
+- **Types directory**: `src/lib/types/`
+- **Stores directory**: `src/lib/stores/`
+
+### Component Structure
+
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  
+  // Props
+  export let title: string;
+  export let count = 0;
+  
+  // Reactive declarations
+  $: doubled = count * 2;
+  $: isEven = count % 2 === 0;
+  
+  // Functions
+  function increment() {
+    count++;
+  }
+  
+  // Lifecycle
+  onMount(() => {
+    console.log('Component mounted');
+  });
+</script>
+
+<div>
+  <h1>{title}</h1>
+  <p>Count: {count}</p>
+  <p>Doubled: {doubled}</p>
+  <p>Is even: {isEven}</p>
+  <button class="btn" on:click={increment}>Increment</button>
+</div>
+
+<style>
+  /* Component-scoped styles or use Tailwind classes */
+</style>
+```
+
+### Project Structure
+
+```plaintext
+src/
+├── routes/
+│   ├── +page.svelte      # Main page
+│   └── +layout.svelte    # Root layout
+├── lib/
+│   ├── components/       # Reusable components
+│   ├── stores/           # Svelte stores
+│   ├── utils/            # Utility functions
+│   └── types/            # TypeScript types
+└── app.html              # HTML template
+```
+
+## Reactive Declarations
+
+Svelte's reactive declarations automatically update when dependencies change:
+
+<Tabs>
+  <Tab title="Basic Reactivity">
+    ```svelte
+    <script lang="ts">
+      let count = 0;
+      
+      // Automatically recalculates when count changes
+      $: doubled = count * 2;
+      $: tripled = count * 3;
+      $: message = count > 10 ? 'High' : 'Low';
+    </script>
+
+    <div>
+      <p>Count: {count}</p>
+      <p>Doubled: {doubled}</p>
+      <p>Tripled: {tripled}</p>
+      <p>Status: {message}</p>
+      <button class="btn" on:click={() => count++}>Increment</button>
+    </div>
+    ```
+  </Tab>
+  
+  <Tab title="Reactive Statements">
+    ```svelte
+    <script lang="ts">
+      let count = 0;
+      
+      // Runs whenever count changes
+      $: if (count > 5) {
+        console.log('Count is greater than 5');
+      }
+      
+      // Multiple statements
+      $: {
+        console.log('Count changed:', count);
+        document.title = `Count: ${count}`;
+      }
+    </script>
+    ```
+  </Tab>
+  
+  <Tab title="Array Reactivity">
+    ```svelte
+    <script lang="ts">
+      let items = [1, 2, 3];
+      
+      // Reactive length
+      $: itemCount = items.length;
+      $: total = items.reduce((sum, item) => sum + item, 0);
+      
+      function addItem() {
+        // Trigger reactivity with assignment
+        items = [...items, items.length + 1];
+      }
+      
+      function removeItem() {
+        items = items.slice(0, -1);
+      }
+    </script>
+
+    <div>
+      <p>Items: {itemCount}</p>
+      <p>Total: {total}</p>
+      <button class="btn" on:click={addItem}>Add</button>
+      <button class="btn" on:click={removeItem}>Remove</button>
+    </div>
+    ```
+  </Tab>
+</Tabs>
+
+## Svelte Stores
+
+For global state management:
+
+```typescript
+// src/lib/stores/counter.ts
+import { writable, derived, readable } from 'svelte/store';
+
+// Writable store
+export const count = writable(0);
+
+export function increment() {
+  count.update(n => n + 1);
+}
+
+export function decrement() {
+  count.update(n => n - 1);
+}
+
+export function reset() {
+  count.set(0);
+}
+
+// Derived store
+export const doubled = derived(count, $count => $count * 2);
+
+// Readable store
+export const time = readable(new Date(), function start(set) {
+  const interval = setInterval(() => {
+    set(new Date());
+  }, 1000);
+
+  return function stop() {
+    clearInterval(interval);
+  };
+});
+```
+
+```svelte
+<!-- Usage in component -->
+<script lang="ts">
+  import { count, doubled, increment, decrement, reset } from '$lib/stores/counter';
+</script>
+
+<div>
+  <p>Count: {$count}</p>
+  <p>Doubled: {$doubled}</p>
+  <button class="btn" on:click={increment}>+</button>
+  <button class="btn" on:click={decrement}>-</button>
+  <button class="btn" on:click={reset}>Reset</button>
+</div>
+```
+
+## DaisyUI Theming
+
+DaisyUI includes multiple built-in themes:
+
+```html
+<!-- src/app.html -->
+<html data-theme="light">
+  <!-- Available themes:
+    light, dark, cupcake, bumblebee, emerald, corporate, synthwave,
+    retro, cyberpunk, valentine, halloween, garden, forest, aqua,
+    lofi, pastel, fantasy, wireframe, black, luxury, dracula
+  -->
+</html>
+```
+
+## Conditional Rendering & Loops
+
+<Tabs>
+  <Tab title="If/Else">
+    ```svelte
+    <script lang="ts">
+      let loggedIn = false;
+    </script>
+
+    {#if loggedIn}
+      <p>Welcome back!</p>
+    {:else}
+      <button class="btn">Login</button>
+    {/if}
+    ```
+  </Tab>
+  
+  <Tab title="Each Loop">
+    ```svelte
+    <script lang="ts">
+      let items = [
+        { id: 1, name: 'Apple' },
+        { id: 2, name: 'Banana' },
+        { id: 3, name: 'Cherry' }
+      ];
+    </script>
+
+    <ul>
+      {#each items as item (item.id)}
+        <li>{item.name}</li>
+      {:else}
+        <li>No items</li>
+      {/each}
+    </ul>
+    ```
+  </Tab>
+  
+  <Tab title="Await">
+    ```svelte
+    <script lang="ts">
+      async function fetchData() {
+        const res = await fetch('https://api.example.com/data');
+        return res.json();
+      }
+      
+      let promise = fetchData();
+    </script>
+
+    {#await promise}
+      <div class="loading loading-spinner"></div>
+    {:then data}
+      <div>{JSON.stringify(data)}</div>
+    {:catch error}
+      <div class="alert alert-error">{error.message}</div>
+    {/await}
+    ```
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use reactive declarations for computed values">
+    ```svelte
+    <script>
+      let firstName = 'John';
+      let lastName = 'Doe';
+      
+      // Automatically updates when firstName or lastName change
+      $: fullName = `${firstName} ${lastName}`;
+    </script>
+    ```
+  </Accordion>
+  
+  <Accordion title="Use stores for global state">
+    ```typescript
+    // lib/stores/user.ts
+    import { writable } from 'svelte/store';
+    export const user = writable(null);
+    ```
+  </Accordion>
+  
+  <Accordion title="Use bind: for two-way binding">
+    ```svelte
+    <input class="input" bind:value={name} />
+    <!-- Instead of value={name} on:input={...} -->
+    ```
+  </Accordion>
+  
+  <Accordion title="Use transitions and animations">
+    ```svelte
+    <script>
+      import { fade, slide } from 'svelte/transition';
+    </script>
+    
+    {#if visible}
+      <div transition:fade>Fades in and out</div>
+      <div transition:slide>Slides in and out</div>
+    {/if}
+    ```
+  </Accordion>
+  
+  <Accordion title="Use component slots for composition">
+    ```svelte
+    <!-- Card.svelte -->
+    <div class="card">
+      <slot name="header" />
+      <slot />
+      <slot name="footer" />
+    </div>
+    
+    <!-- Usage -->
+    <Card>
+      <h2 slot="header">Title</h2>
+      <p>Content</p>
+      <button slot="footer" class="btn">Action</button>
+    </Card>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" href="/quickstart" />
+  <Card title="Framework Overview" href="/frameworks/overview" />
+  <Card title="Examples" href="/guides/creating-projects" />
+  <Card title="API Reference" href="/api/introduction" />
+</CardGroup>

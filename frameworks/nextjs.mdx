@@ -1,0 +1,328 @@
+---
+title: "Next.js 15 with Shadcn/ui"
+description: "Build full-stack React applications with Next.js 15, Shadcn/ui, and Tailwind CSS"
+---
+
+Next.js 15 is the default framework in ZapDev, offering a powerful full-stack React experience with server-side rendering, API routes, and advanced routing capabilities.
+
+## Overview
+
+Next.js 15 combines the best of React with server-side rendering, static site generation, and a comprehensive component library.
+
+### Pre-installed Packages
+
+- **Next.js 15.3.3**: Latest React framework with App Router
+- **Shadcn/ui**: Comprehensive component library (CLI-first)
+- **Tailwind CSS v4**: Utility-first CSS framework
+- **TypeScript**: Full type safety
+- **Lucide React**: Icon library
+
+### Key Features
+
+- App Router with file-based routing
+- Server and Client Components
+- Built-in API routes
+- Image optimization
+- Font optimization
+- Fast Refresh for instant feedback
+
+## Use Cases
+
+Next.js 15 is best suited for:
+
+<CardGroup cols={2}>
+  <Card title="Full-Stack Apps" icon="layers">
+    Applications requiring both frontend and backend logic with API routes
+  </Card>
+  
+  <Card title="SEO-Focused Sites" icon="search">
+    Websites that need server-side rendering for optimal SEO performance
+  </Card>
+  
+  <Card title="E-commerce" icon="shopping-cart">
+    Online stores with product pages, dynamic routing, and server actions
+  </Card>
+  
+  <Card title="Content Sites" icon="book-open">
+    Blogs, documentation sites, and content-heavy applications
+  </Card>
+</CardGroup>
+
+## Shadcn/ui Components
+
+Shadcn/ui provides production-ready components that you can copy and customize. All components are pre-installed in ZapDev sandboxes.
+
+### Available Components
+
+- **Layout**: Card, Separator, Tabs, Accordion
+- **Forms**: Button, Input, Select, Checkbox, Radio, Switch
+- **Data Display**: Table, Badge, Avatar, Calendar
+- **Feedback**: Alert, Dialog, Toast, Progress
+- **Navigation**: Dropdown Menu, Navigation Menu, Breadcrumb
+- **Overlays**: Sheet, Popover, Tooltip, Command
+
+### Component Usage
+
+<Tabs>
+  <Tab title="Button">
+    ```tsx
+    import { Button } from "@/components/ui/button"
+
+    export default function Page() {
+      return (
+        <div>
+          <Button variant="default">Click me</Button>
+          <Button variant="destructive">Delete</Button>
+          <Button variant="outline">Cancel</Button>
+          <Button variant="ghost">Ghost</Button>
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Card">
+    ```tsx
+    import {
+      Card,
+      CardContent,
+      CardDescription,
+      CardFooter,
+      CardHeader,
+      CardTitle,
+    } from "@/components/ui/card"
+    import { Button } from "@/components/ui/button"
+
+    export default function Page() {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Card Title</CardTitle>
+            <CardDescription>Card description goes here</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>Card content with your custom components</p>
+          </CardContent>
+          <CardFooter>
+            <Button>Action</Button>
+          </CardFooter>
+        </Card>
+      )
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Form">
+    ```tsx
+    "use client"
+
+    import { useState } from "react"
+    import { Button } from "@/components/ui/button"
+    import { Input } from "@/components/ui/input"
+    import { Label } from "@/components/ui/label"
+
+    export default function Page() {
+      const [email, setEmail] = useState("")
+
+      return (
+        <form className="space-y-4">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <Button type="submit">Submit</Button>
+        </form>
+      )
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Dialog">
+    ```tsx
+    "use client"
+
+    import {
+      Dialog,
+      DialogContent,
+      DialogDescription,
+      DialogHeader,
+      DialogTitle,
+      DialogTrigger,
+    } from "@/components/ui/dialog"
+    import { Button } from "@/components/ui/button"
+
+    export default function Page() {
+      return (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>Open Dialog</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Are you sure?</DialogTitle>
+              <DialogDescription>
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      )
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Critical Rules
+
+<Warning>
+  **Client Components**: Add `"use client"` to the top of `app/page.tsx` and any files using React hooks (useState, useEffect, etc.)
+</Warning>
+
+<Info>
+  **Pre-installed Components**: All Shadcn components are pre-installed. Just import and use them directly without running the CLI.
+</Info>
+
+### File Conventions
+
+- **Main file**: `app/page.tsx`
+- **Components**: PascalCase names, kebab-case filenames (`.tsx`)
+- **Imports**: Use `@/` alias for absolute imports
+- **Utilities**: Import `cn` from `@/lib/utils`, not from `components/ui`
+
+### Project Structure
+
+```plaintext
+.
+├── app/
+│   ├── page.tsx          # Main page (add "use client" here)
+│   ├── layout.tsx        # Root layout
+│   └── globals.css       # Global styles
+├── components/
+│   ├── ui/               # Shadcn components (pre-installed)
+│   └── hero.tsx          # Custom components (kebab-case)
+└── lib/
+    └── utils.ts          # Utility functions
+```
+
+## Workflow
+
+When ZapDev generates Next.js code, it follows this workflow:
+
+1. **Generate files**: Creates all component and page files
+2. **Install packages**: Runs `npm install <package> --yes` for additional dependencies
+3. **Validate**: Runs `npm run lint` and `npm run build` to ensure code quality
+4. **Summary**: Provides a task summary of what was built
+
+<Note>
+  Development servers are not started in ZapDev sandboxes. Code is validated using build and lint commands.
+</Note>
+
+## Advanced Features
+
+### Server Components
+
+By default, all components in the App Router are Server Components:
+
+```tsx
+// This is a Server Component (no "use client")
+export default async function Page() {
+  // You can fetch data directly
+  const data = await fetch('https://api.example.com/data')
+  const json = await data.json()
+  
+  return <div>{json.title}</div>
+}
+```
+
+### Client Components
+
+For interactivity, add `"use client"` at the top:
+
+```tsx
+"use client"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+
+export default function Page() {
+  const [count, setCount] = useState(0)
+  
+  return (
+    <Button onClick={() => setCount(count + 1)}>
+      Count: {count}
+    </Button>
+  )
+}
+```
+
+### Styling with Tailwind
+
+Combine Shadcn components with Tailwind utilities:
+
+```tsx
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+export default function Page() {
+  return (
+    <Card className="max-w-md mx-auto mt-8">
+      <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600">
+        <CardTitle className="text-white">Gradient Header</CardTitle>
+      </CardHeader>
+      <CardContent className="p-6">
+        <p className="text-gray-700">Custom styled card</p>
+      </CardContent>
+    </Card>
+  )
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use the cn utility for conditional classes">
+    ```tsx
+    import { cn } from "@/lib/utils"
+    
+    <div className={cn(
+      "base-class",
+      isActive && "active-class",
+      "another-class"
+    )} />
+    ```
+  </Accordion>
+  
+  <Accordion title="Extract reusable components">
+    Break complex UIs into smaller components in `components/` directory:
+    ```tsx
+    // components/hero.tsx
+    export function Hero() {
+      return <section>...</section>
+    }
+    
+    // app/page.tsx
+    import { Hero } from "@/components/hero"
+    ```
+  </Accordion>
+  
+  <Accordion title="Inspect component APIs before using">
+    Use the readFiles tool to check component props and variants before implementation.
+  </Accordion>
+  
+  <Accordion title="Build surfaces with Shadcn primitives">
+    Use Shadcn components as building blocks instead of bare HTML elements.
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" href="/quickstart" />
+  <Card title="Framework Overview" href="/frameworks/overview" />
+  <Card title="Examples" href="/guides/creating-projects" />
+  <Card title="API Reference" href="/api/introduction" />
+</CardGroup>

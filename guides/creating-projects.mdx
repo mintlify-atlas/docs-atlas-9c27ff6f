@@ -1,0 +1,181 @@
+---
+title: Creating Projects
+description: Learn how to create and manage projects in ZapDev
+---
+
+## Overview
+
+Projects in ZapDev are the foundation of your development workflow. Each project represents a web application you're building with AI assistance. Projects support multiple frameworks including Next.js, Angular, React, Vue, and Svelte.
+
+## Creating a New Project
+
+There are multiple ways to start a new project in ZapDev:
+
+<Steps>
+  <Step title="Navigate to Home Page">
+    Visit the ZapDev home page where you'll find the project creation form.
+  </Step>
+  
+  <Step title="Describe Your Project">
+    In the text area, describe what you want to build. Be specific about:
+    - The type of application (e.g., dashboard, landing page, e-commerce site)
+    - Key features you need
+    - Any design preferences or requirements
+    
+    **Example prompt:**
+    ```
+    Build a modern task management dashboard with drag-and-drop functionality,
+    dark mode support, and real-time updates. Use a clean, minimalist design.
+    ```
+  </Step>
+  
+  <Step title="Add Visual References (Optional)">
+    Click the image icon to upload screenshots, mockups, or design references. Supported formats:
+    - PNG, JPG, WebP images
+    - Multiple images per project
+    
+    The AI will analyze these images to understand your design intent.
+  </Step>
+  
+  <Step title="Select AI Model (Optional)">
+    Click the model icon to choose which AI model to use:
+    - **Auto** - Automatically selects the best model for your task
+    - **Claude Haiku 4.5** - Fast and efficient for simple tasks
+    - **Gemini 3 Pro** - Advanced reasoning capabilities
+    - **GPT-5.1 Codex** - Best for complex development tasks
+    - **Z-AI GLM 4.7** - Ultra-fast inference
+    - **Kimi K2.5** - Advanced reasoning for complex projects
+  </Step>
+  
+  <Step title="Submit Your Request">
+    Press **Cmd+Enter** (Mac) or **Ctrl+Enter** (Windows) to create the project.
+    
+    ZapDev will:
+    - Generate a random project name (e.g., "happy-project", "bright-app")
+    - Create your project with the default framework (Next.js unless specified)
+    - Start the AI agent to generate your initial code
+  </Step>
+</Steps>
+
+## Project Templates
+
+For quick starts, select from pre-built templates on the home page:
+
+- **Portfolio Website** - Personal portfolio with projects showcase
+- **Blog Platform** - Content management system
+- **E-commerce Store** - Product catalog with cart functionality
+- **Dashboard** - Admin panel with analytics
+- **Landing Page** - Marketing page with hero section
+
+## Managing Projects
+
+### Viewing Your Projects
+
+All your projects are listed on the home page with:
+- Project name
+- Preview thumbnail (from latest generated code)
+- Creation date
+- Framework type
+
+### Project Settings
+
+Within each project, you can:
+
+1. **Rename Project** - Update the project name in the header
+2. **Change Framework** - Switch between Next.js, Angular, React, Vue, or Svelte
+3. **Set Model Preference** - Choose a default AI model for the project
+4. **View Usage** - Check your credit consumption
+
+### Deleting Projects
+
+<Warning>
+Deleting a project permanently removes all associated data including messages, code fragments, and attachments. This action cannot be undone.
+</Warning>
+
+<Steps>
+  <Step title="Open Project">
+    Navigate to the project you want to delete.
+  </Step>
+  
+  <Step title="Access Project Menu">
+    Click the menu icon in the project header.
+  </Step>
+  
+  <Step title="Confirm Deletion">
+    Select "Delete Project" and confirm the action.
+    
+    All project data will be immediately removed:
+    - Messages and conversation history
+    - Generated code fragments
+    - Uploaded attachments
+    - Import history
+  </Step>
+</Steps>
+
+## Framework Selection
+
+ZapDev automatically detects your preferred framework from your prompt, or defaults to Next.js. Supported frameworks:
+
+| Framework | Use Case | Default Styling |
+|-----------|----------|----------------|
+| **Next.js** | Full-stack React apps | Tailwind CSS |
+| **Angular** | Enterprise applications | Material Design |
+| **React** | Single-page apps | Chakra UI |
+| **Vue** | Progressive web apps | Vuetify |
+| **Svelte** | Lightweight apps | DaisyUI |
+
+To specify a framework, mention it in your project description:
+
+```
+Build an Angular dashboard with Material Design components...
+```
+
+## Credits and Limits
+
+Each project creation consumes **1 credit**. Available credits:
+
+- **Free Plan** - 5 credits per day
+- **Pro Plan** - 100 credits per day
+- **Unlimited Plan** - Unlimited credits
+
+Credits reset every 24 hours on a rolling window basis.
+
+## Best Practices
+
+<Check>
+**Be Specific** - Detailed prompts produce better results. Include feature requirements, design preferences, and technical constraints.
+</Check>
+
+<Check>
+**Use Visual References** - Upload mockups or screenshots to guide the AI's design decisions.
+</Check>
+
+<Check>
+**Iterate Gradually** - Start with a basic structure, then refine through conversational messages.
+</Check>
+
+<Check>
+**Choose the Right Model** - Use faster models for simple tasks and advanced models for complex requirements.
+</Check>
+
+## Next Steps
+
+Once your project is created:
+
+1. [Chat with AI agents](/guides/chatting-with-ai) to refine your application
+2. [Manage files](/guides/managing-files) in the code preview
+3. [Import designs](/guides/importing-designs) from Figma or GitHub
+
+## Troubleshooting
+
+### Project Creation Fails
+
+- **Check Credits** - Ensure you have available credits
+- **Verify Authentication** - Make sure you're signed in
+- **Simplify Prompt** - Try a shorter, more focused description
+
+### No Code Generated
+
+- **Wait for Processing** - Large projects may take 30-60 seconds
+- **Check Error Messages** - Review any error notifications in the UI
+- **Refresh Page** - Sometimes a simple refresh resolves connection issues

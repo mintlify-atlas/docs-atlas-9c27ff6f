@@ -1,0 +1,827 @@
+---
+title: Project Structure
+description: Complete guide to ZapDev's project organization, file structure, and code conventions
+---
+
+# Project Structure
+
+ZapDev follows a feature-based architecture with clear separation of concerns. This guide explains the organization of the codebase and where to find specific functionality.
+
+## Directory Overview
+
+```
+zapdev/
+├── src/                    # Application source code
+│   ├── app/               # Next.js App Router (pages, layouts, API routes)
+│   ├── modules/           # Feature-based modules (UI + server logic)
+│   ├── agents/            # AI agent orchestration
+│   ├── inngest/           # Background job workflows
+│   ├── prompts/           # LLM system prompts per framework
+│   ├── components/        # Shared UI components
+│   ├── lib/               # Utilities and framework config
+│   ├── trpc/              # Type-safe API layer
+│   ├── hooks/             # Shared React hooks
+│   └── pages/             # Legacy pages (404 error handling)
+├── convex/                 # Real-time database (schema, queries, mutations)
+│   ├── schema.ts          # Database table definitions
+│   ├── projects.ts        # Project CRUD operations
+│   ├── messages.ts        # Message handling
+│   ├── usage.ts           # Credit tracking and rate limits
+│   ├── helpers.ts         # Auth and utility functions
+│   └── http.ts            # Webhook endpoints
+├── sandbox-templates/      # E2B sandbox configurations
+│   ├── nextjs/            # Next.js 15 template
+│   ├── angular/           # Angular 19 template
+│   ├── react/             # React 18 + Vite template
+│   ├── vue/               # Vue 3 template
+│   └── svelte/            # SvelteKit template
+├── tests/                  # Jest test suite
+│   ├── mocks/             # Test mocks (Convex, E2B, Inngest)
+│   └── *.test.ts          # Test files
+├── explanations/           # Project documentation
+├── public/                 # Static assets
+├── .cursor/                # Cursor AI rules
+├── package.json            # Dependencies and scripts
+├── tsconfig.json           # TypeScript configuration
+├── tailwind.config.ts      # Tailwind CSS configuration
+└── next.config.mjs         # Next.js configuration
+```
+
+## Source Code (`src/`)
+
+### App Router (`src/app/`)
+
+Next.js 15 App Router with file-based routing:
+
+```
+src/app/
+├── (home)/                # Marketing pages group
+│   ├── layout.tsx         # Home layout (header, footer)
+│   ├── page.tsx           # Landing page
+│   ├── pricing/           # Pricing page
+│   └── subscription/      # Subscription management
+├── projects/
+│   └── [id]/
+│       └── page.tsx       # Project workspace (main app)
+├── frameworks/            # Framework showcase pages
+├── showcase/              # Example projects
+├── import/                # Figma/GitHub import flows
+├── privacy/               # Privacy policy
+├── terms/                 # Terms of service
+├── api/                   # API routes
+│   ├── agent/             # AI agent endpoints
+│   ├── inngest/           # Inngest webhook
+│   ├── import/            # Import endpoints
+│   ├── polar/             # Polar billing
+│   ├── trpc/              # tRPC endpoint
+│   └── webhooks/          # External webhooks
+├── layout.tsx             # Root layout (providers)
+├── globals.css            # Global styles
+└── error.tsx              # Error boundary
+```
+
+**Key Patterns**:
+- **Route Groups**: `(home)` groups routes without affecting URL
+- **Dynamic Routes**: `[id]` for dynamic segments
+- **Server Components**: Default for all components
+- **Client Components**: Marked with `'use client'`
+
+### Feature Modules (`src/modules/`)
+
+Feature-based organization with co-located UI and server logic:
+
+```
+src/modules/
+├── projects/
+│   ├── ui/
+│   │   ├── views/
+│   │   │   └── project-view.tsx           # Main project workspace
+│   │   ├── components/
+│   │   │   ├── project-header.tsx         # Project header
+│   │   │   ├── messages-container.tsx     # Message list
+│   │   │   ├── message-loading.tsx        # Loading states
+│   │   │   ├── usage.tsx                  # Usage indicator
+│   │   │   └── webcontainer-preview.tsx   # Preview pane
+│   │   └── hooks/
+│   │       └── use-webcontainer-runner.ts # WebContainer logic
+│   └── server/
+│       └── procedures.ts                  # tRPC API endpoints
+├── messages/
+│   ├── ui/
+│   │   └── components/
+│   └── server/
+│       └── procedures.ts
+└── usage/
+    ├── ui/
+    │   └── components/
+    └── server/
+        └── procedures.ts
+```
+
+**Module Structure**:
+- **ui/views/**: Page-level components
+- **ui/components/**: Feature-specific components
+- **ui/hooks/**: Feature-specific React hooks
+- **server/procedures.ts**: tRPC router with API endpoints
+
+**Benefits**:
+- Co-location of related code
+- Clear feature boundaries
+- Easy to understand and modify
+- Prevents cross-feature dependencies
+
+### AI Agents (`src/agents/`)
+
+Core AI agent orchestration logic:
+
+```
+src/agents/
+├── code-agent.ts          # Main agent loop (framework detection, auto-fix)
+├── sandbox-utils.ts       # E2B file operations and dev server management
+├── tools.ts               # Agent capabilities (terminal, file ops)
+├── types.ts               # Agent configurations and interfaces
+└── client.ts              # OpenRouter LLM client
+```
+
+**Key Files**:
+- **code-agent.ts**: Core generation loop with retry logic
+- **sandbox-utils.ts**: Python-optimized batch operations
+- **tools.ts**: Tool definitions for AI function calling
+
+### Background Jobs (`src/inngest/`)
+
+Inngest event handlers for long-running tasks:
+
+```
+src/inngest/
+├── client.ts              # Inngest client configuration
+└── functions/
+    ├── code-agent.ts      # Full project generation workflow
+    ├── figma-import.ts    # Figma design processing
+    ├── webcontainer-run.ts # WebContainer execution
+    └── index.ts           # Function exports
+```
+
+**Event Flow**:
+1. User triggers action in UI
+2. API route sends event to Inngest
+3. Inngest executes background function
+4. Function updates Convex database
+5. UI reactively updates via Convex subscription
+
+### LLM Prompts (`src/prompts/`)
+
+Framework-specific system prompts:
+
+```
+src/prompts/
+├── nextjs.ts              # Next.js 15 prompts
+├── angular.ts             # Angular 19 prompts
+├── react.ts               # React 18 + Vite prompts
+├── vue.ts                 # Vue 3 prompts
+├── svelte.ts              # SvelteKit prompts
+├── shared.ts              # Common instructions
+└── framework-selector.ts  # Auto-detection prompt
+```
+
+**Prompt Structure**:
+```typescript
+export const nextjsPrompt = `
+You are an expert Next.js 15 developer...
+
+Framework: Next.js 15 with App Router
+Styling: Tailwind CSS v4
+Components: Shadcn/ui (copy/paste components)
+
+Best Practices:
+- Use Server Components by default
+- Client Components only when needed
+- TypeScript strict mode
+...
+`;
+```
+
+### Shared Components (`src/components/`)
+
+Reusable UI components:
+
+```
+src/components/
+├── ui/                    # Shadcn/ui components (copy/paste)
+│   ├── button.tsx
+│   ├── dialog.tsx
+│   ├── input.tsx
+│   ├── select.tsx
+│   └── ... (40+ components)
+├── code-view/             # Code display components
+│   ├── file-explorer.tsx
+│   └── code-preview.tsx
+├── import/                # Import flow components
+│   ├── figma-import.tsx
+│   └── github-import.tsx
+└── seo/                   # SEO components
+    └── json-ld.tsx
+```
+
+**Component Types**:
+- **ui/**: Base Shadcn/ui primitives (Button, Dialog, etc.)
+- **code-view/**: Code display with syntax highlighting
+- **import/**: Figma/GitHub import wizards
+- **seo/**: SEO and metadata components
+
+### Utilities (`src/lib/`)
+
+Core utilities and configurations:
+
+```
+src/lib/
+├── convex-api.ts          # Convex API exports
+├── auth-server.ts         # Clerk authentication helpers
+├── frameworks.ts          # Framework metadata (icons, colors, ports)
+├── utils.ts               # General utilities (cn, sanitizers)
+├── filter-ai-files.ts     # AI-generated file filtering
+├── stream-manager.ts      # SSE stream utilities
+├── figma-processor.ts     # Figma API processing
+├── firecrawl.ts           # Web scraping client
+├── brave-search.ts        # Search API client
+├── polar.ts               # Polar billing helpers
+├── seo.ts                 # SEO metadata generators
+├── performance.ts         # Performance optimization
+├── cache.ts               # Caching utilities
+└── env-validation.ts      # Environment variable validation
+```
+
+**Key Utilities**:
+- **frameworks.ts**: Central config for all supported frameworks
+- **utils.ts**: `cn()` for class merging, sanitizers for database safety
+- **auth-server.ts**: Server-side authentication with Convex
+
+### Type-Safe API (`src/trpc/`)
+
+tRPC configuration and routers:
+
+```
+src/trpc/
+├── routers/
+│   └── _app.ts            # Root router (merges feature routers)
+├── init.ts                # Context, middleware, procedure factories
+├── client.tsx             # Client-side hooks (useTRPC)
+├── server.tsx             # Server-side caller
+└── query-client.ts        # React Query configuration
+```
+
+**Architecture**:
+```typescript
+// init.ts - Create procedures
+export const publicProcedure = t.procedure;
+export const protectedProcedure = t.procedure.use(authMiddleware);
+
+// routers/_app.ts - Merge feature routers
+export const appRouter = createTRPCRouter({
+  usage: usageRouter,       // from src/modules/usage/server
+  messages: messagesRouter, // from src/modules/messages/server
+  projects: projectsRouter, // from src/modules/projects/server
+});
+
+// client.tsx - Use in components
+const { data } = api.projects.list.useQuery();
+```
+
+### Shared Hooks (`src/hooks/`)
+
+Global React hooks:
+
+```
+src/hooks/
+├── use-debounce.ts        # Debounced values
+├── use-local-storage.ts   # Persisted state
+├── use-media-query.ts     # Responsive breakpoints
+└── use-toast.ts           # Toast notifications
+```
+
+## Database (`convex/`)
+
+Convex backend with real-time queries:
+
+```
+convex/
+├── schema.ts              # Table definitions and indexes
+├── projects.ts            # Project queries and mutations
+├── messages.ts            # Message operations
+├── usage.ts               # Credit tracking
+├── agentRuns.ts           # Background job tracking
+├── subscriptions.ts       # Billing management
+├── imports.ts             # Figma/GitHub imports
+├── oauth.ts               # OAuth token storage
+├── polar.ts               # Polar webhook handlers
+├── webhooks.ts            # Webhook event tracking
+├── rateLimit.ts           # Rate limiting logic
+├── helpers.ts             # requireAuth, utilities
+├── http.ts                # HTTP endpoints
+├── auth.config.ts         # Clerk integration
+└── convex.config.ts       # Convex configuration
+```
+
+**Key Patterns**:
+
+### Schema Definition (schema.ts)
+```typescript
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  projects: defineTable({
+    name: v.string(),
+    userId: v.string(),
+    framework: frameworkEnum,
+    // ...
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_createdAt", ["userId", "createdAt"]),
+});
+```
+
+### Query with Index (projects.ts)
+```typescript
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .order("desc")
+      .collect();
+  },
+});
+```
+
+### Mutation (projects.ts)
+```typescript
+import { mutation } from "./_generated/server";
+
+export const create = mutation({
+  args: {
+    name: v.string(),
+    framework: frameworkEnum,
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const projectId = await ctx.db.insert("projects", {
+      ...args,
+      userId,
+      createdAt: Date.now(),
+    });
+    return projectId;
+  },
+});
+```
+
+**Important**: ALL queries MUST use indexes (no `.filter()`).
+
+## Sandbox Templates (`sandbox-templates/`)
+
+E2B sandbox configurations for each framework:
+
+```
+sandbox-templates/
+├── nextjs/
+│   ├── e2b.Dockerfile     # Base image (Node.js, dependencies)
+│   ├── package.json       # Next.js dependencies
+│   ├── next.config.mjs    # Next.js configuration
+│   ├── tailwind.config.ts # Tailwind setup
+│   ├── tsconfig.json      # TypeScript config
+│   ├── compile_page.sh    # Pre-warming script
+│   └── postcss.config.mjs # PostCSS config
+├── angular/
+│   ├── e2b.Dockerfile
+│   ├── package.json       # Angular 19 + Material
+│   └── angular.json       # Angular CLI config
+├── react/
+│   ├── e2b.Dockerfile
+│   ├── package.json       # Vite + React + Chakra UI
+│   └── vite.config.ts     # Vite configuration
+├── vue/
+│   ├── e2b.Dockerfile
+│   ├── package.json       # Vue 3 + Vuetify
+│   └── vite.config.ts
+└── svelte/
+    ├── e2b.Dockerfile
+    ├── package.json       # SvelteKit + DaisyUI
+    └── svelte.config.js
+```
+
+**Template Building**:
+```bash
+cd sandbox-templates/nextjs
+e2b template build --name zapdev-nextjs --cmd "/compile_page.sh"
+```
+
+**Pre-warming Script** (compile_page.sh):
+```bash
+#!/bin/bash
+npm install
+npm run dev &  # Start dev server in background
+
+# Wait for server to be ready
+while ! curl -s http://localhost:3000 > /dev/null; do
+  sleep 1
+done
+
+echo "Development server ready"
+```
+
+## Tests (`tests/`)
+
+Jest test suite with mocks:
+
+```
+tests/
+├── mocks/
+│   ├── convex-generated-api.ts        # Convex API mocks
+│   ├── convex-generated-dataModel.ts  # Convex data model mocks
+│   ├── convex-browser.ts              # ConvexReactClient mock
+│   ├── e2b-code-interpreter.ts        # E2B sandbox mocks
+│   └── inngest-agent-kit.ts           # Inngest mocks
+├── setup.ts                            # Jest configuration
+├── agent-workflow.test.ts              # E2E agent tests
+├── credit-system.test.ts               # Usage tracking tests
+├── frameworks.test.ts                  # Framework detection tests
+├── security.test.ts                    # Security validation tests
+├── sanitizers.test.ts                  # Data sanitization tests
+└── file-operations.test.ts             # File handling tests
+```
+
+**Running Tests**:
+```bash
+bun run test
+```
+
+## Configuration Files
+
+### TypeScript (`tsconfig.json`)
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "jsx": "preserve",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/convex/*": ["./convex/*"]
+    }
+  }
+}
+```
+
+### Next.js (`next.config.mjs`)
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  experimental: {
+    serverActions: true,
+  },
+  images: {
+    domains: ['...'],
+  },
+};
+
+export default nextConfig;
+```
+
+### Tailwind (`tailwind.config.ts`)
+```typescript
+import type { Config } from 'tailwindcss';
+
+const config: Config = {
+  content: ['./src/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      colors: { ... },
+      fontFamily: { ... },
+    },
+  },
+  plugins: [],
+};
+
+export default config;
+```
+
+## Code Conventions
+
+### File Naming
+
+- **Components**: PascalCase (`ProjectView.tsx`)
+- **Utilities**: kebab-case (`auth-server.ts`)
+- **Hooks**: camelCase with `use` prefix (`useDebounce.ts`)
+- **Types**: PascalCase (`StreamEvent`)
+- **Convex Functions**: camelCase (`projects.ts` exports `list`, `create`)
+
+### Import Order
+
+```typescript
+// 1. React/Next.js
+import { useState } from 'react';
+import Link from 'next/link';
+
+// 2. External libraries
+import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
+
+// 3. Internal modules
+import { api } from '@/trpc/client';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+// 4. Types
+import type { Project } from '@/types';
+```
+
+### Component Structure
+
+```typescript
+'use client'; // Only if needed
+
+import { ... };
+
+// Types
+interface Props {
+  projectId: string;
+}
+
+// Component
+export function ProjectView({ projectId }: Props) {
+  // Hooks
+  const [state, setState] = useState(...);
+  const { data } = useQuery(...);
+
+  // Event handlers
+  const handleClick = () => { ... };
+
+  // Render
+  return (
+    <div className="...">
+      ...
+    </div>
+  );
+}
+```
+
+### tRPC Procedure Structure
+
+```typescript
+import { z } from 'zod';
+import { protectedProcedure } from '@/trpc/init';
+
+export const create = protectedProcedure
+  .input(
+    z.object({
+      name: z.string().min(1),
+      framework: frameworkEnum,
+    })
+  )
+  .mutation(async ({ input, ctx }) => {
+    // Implementation
+  });
+```
+
+### Convex Function Structure
+
+```typescript
+import { mutation, query } from './_generated/server';
+import { v } from 'convex/values';
+import { requireAuth } from './helpers';
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    return await ctx.db
+      .query('projects')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .collect();
+  },
+});
+
+export const create = mutation({
+  args: {
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    return await ctx.db.insert('projects', {
+      ...args,
+      userId,
+      createdAt: Date.now(),
+    });
+  },
+});
+```
+
+## Path Aliases
+
+Configured in `tsconfig.json`:
+
+```typescript
+// Source files
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { api } from '@/trpc/client';
+
+// Convex files
+import { api as convexApi } from '@/convex/_generated/api';
+import type { Doc } from '@/convex/_generated/dataModel';
+```
+
+## Anti-Patterns (Project-Specific)
+
+Based on `AGENTS.md`:
+
+### Package Management
+```bash
+# ❌ NEVER
+npm install
+pnpm add
+yarn add
+
+# ✅ ALWAYS
+bun install
+bun add
+```
+
+### Convex Queries
+```typescript
+// ❌ NEVER use .filter() - O(N) scan
+const projects = await ctx.db
+  .query('projects')
+  .filter((q) => q.eq(q.field('userId'), userId))
+  .collect();
+
+// ✅ ALWAYS use indexes - O(log N)
+const projects = await ctx.db
+  .query('projects')
+  .withIndex('by_userId', (q) => q.eq('userId', userId))
+  .collect();
+```
+
+### File Operations
+```typescript
+// ❌ SLOW - N API calls
+for (const file of files) {
+  await sandbox.files.write(file.path, file.content);
+}
+
+// ✅ FAST - 1 API call via Python
+await writeFilesBatch(sandbox, files);
+```
+
+### Documentation
+```bash
+# ❌ NEVER create .md files in root
+touch FEATURE.md
+
+# ✅ ALWAYS use explanations/ directory
+touch explanations/FEATURE.md
+```
+
+## Finding Code
+
+### "Where do I find...?"
+
+| Feature | Location |
+|---------|----------|
+| **Landing page** | `src/app/(home)/page.tsx` |
+| **Project workspace** | `src/modules/projects/ui/views/project-view.tsx` |
+| **Database schema** | `convex/schema.ts` |
+| **AI agent logic** | `src/agents/code-agent.ts` |
+| **Framework prompts** | `src/prompts/nextjs.ts`, etc. |
+| **tRPC API** | `src/modules/*/server/procedures.ts` |
+| **Shared components** | `src/components/ui/` |
+| **Auth logic** | `src/lib/auth-server.ts` |
+| **Sandbox templates** | `sandbox-templates/nextjs/` |
+| **Usage tracking** | `convex/usage.ts` |
+| **Background jobs** | `src/inngest/functions/` |
+| **Tests** | `tests/*.test.ts` |
+
+## Development Workflow
+
+### Starting Development
+
+```bash
+# Terminal 1: Next.js dev server
+bun run dev
+
+# Terminal 2: Convex backend
+bun run convex:dev
+
+# Terminal 3 (optional): Inngest dev server
+npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+```
+
+### Creating a New Feature
+
+1. **Create module structure**:
+```bash
+mkdir -p src/modules/feature-name/{ui/components,server}
+```
+
+2. **Add UI components**:
+```typescript
+// src/modules/feature-name/ui/components/FeatureView.tsx
+export function FeatureView() { ... }
+```
+
+3. **Add tRPC procedures**:
+```typescript
+// src/modules/feature-name/server/procedures.ts
+export const featureRouter = createTRPCRouter({
+  list: protectedProcedure.query(...),
+  create: protectedProcedure.mutation(...),
+});
+```
+
+4. **Merge into app router**:
+```typescript
+// src/trpc/routers/_app.ts
+import { featureRouter } from '@/modules/feature-name/server/procedures';
+
+export const appRouter = createTRPCRouter({
+  // ...
+  feature: featureRouter,
+});
+```
+
+5. **Add Convex functions if needed**:
+```typescript
+// convex/feature.ts
+export const list = query({ ... });
+export const create = mutation({ ... });
+```
+
+### Adding a New Framework
+
+1. **Update schema**:
+```typescript
+// convex/schema.ts
+export const frameworkEnum = v.union(
+  // ...
+  v.literal("NEW_FRAMEWORK")
+);
+```
+
+2. **Create sandbox template**:
+```bash
+mkdir sandbox-templates/new-framework
+# Add e2b.Dockerfile, package.json, etc.
+```
+
+3. **Add framework config**:
+```typescript
+// src/lib/frameworks.ts
+export const frameworks = [
+  // ...
+  {
+    id: 'new-framework',
+    name: 'New Framework',
+    slug: 'new-framework',
+    // ...
+  },
+];
+```
+
+4. **Create prompt**:
+```typescript
+// src/prompts/new-framework.ts
+export const newFrameworkPrompt = `...`;
+```
+
+5. **Build template**:
+```bash
+cd sandbox-templates/new-framework
+e2b template build --name zapdev-new-framework
+```
+
+## Summary
+
+ZapDev's project structure follows these principles:
+
+1. **Feature-Based Modules**: Related UI and logic co-located
+2. **Clear Separation**: Frontend (src/app) vs. Backend (convex)
+3. **Type Safety**: tRPC for APIs, Convex for database
+4. **Real-Time**: Convex reactive queries
+5. **Scalability**: Background jobs via Inngest
+6. **Testability**: Mocks for all external services
+
+This organization makes it easy to:
+- Find related code
+- Add new features
+- Understand data flow
+- Maintain consistency
+- Scale the application

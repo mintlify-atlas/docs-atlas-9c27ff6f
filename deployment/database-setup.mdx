@@ -1,0 +1,649 @@
+---
+title: "Database Setup"
+description: "Deploy and configure the Convex database for ZapDev"
+---
+
+ZapDev uses Convex as its real-time database backend. This guide covers deploying the schema, understanding the data model, and performing database operations.
+
+## Overview
+
+Convex is a serverless database that provides:
+
+- Real-time reactive queries
+- Type-safe database operations
+- Automatic indexing and optimization
+- Built-in authentication integration
+- Serverless functions for business logic
+
+## Prerequisites
+
+Before deploying the database:
+
+1. **Convex Account**: Sign up at [dashboard.convex.dev](https://dashboard.convex.dev/)
+2. **Bun Installed**: ZapDev uses Bun as the package manager
+3. **Environment Variables**: Configure `NEXT_PUBLIC_CONVEX_URL` (see [Environment Variables](/deployment/environment-variables))
+
+## Deployment
+
+### Initial Deployment
+
+Deploy your Convex schema to production:
+
+```bash
+# Deploy schema and functions
+bun run convex:deploy
+```
+
+**Expected Output:**
+```
+✔ Deployed Convex functions to production
+✔ Schema updates applied
+✔ 15 tables created
+✔ 42 indexes created
+```
+
+**Time:** 1-2 minutes
+
+### Development Mode
+
+For local development, run Convex in dev mode:
+
+```bash
+# Terminal 1: Start Convex dev server
+bun run convex:dev
+
+# Terminal 2: Start Next.js dev server
+bun run dev
+```
+
+Convex Dev provides:
+- Live schema updates
+- Development dashboard at `http://localhost:3000/_convex`
+- Real-time function logs
+- Database explorer
+
+## Database Schema
+
+ZapDev's database consists of 15 tables defined in `convex/schema.ts`.
+
+### Core Tables
+
+#### projects
+
+Stores user projects and their configurations.
+
+**Fields:**
+- `name` (string) - Project name
+- `userId` (string) - Owner's user ID
+- `framework` (enum) - Framework choice: `NEXTJS`, `ANGULAR`, `REACT`, `VUE`, `SVELTE`
+- `modelPreference` (string, optional) - Preferred AI model
+- `createdAt` (number, optional) - Unix timestamp
+- `updatedAt` (number, optional) - Unix timestamp
+
+**Indexes:**
+- `by_userId` - Find projects by user
+- `by_userId_createdAt` - User projects ordered by creation date
+
+#### messages
+
+Stores conversation messages between users and AI agents.
+
+**Fields:**
+- `content` (string) - Message text
+- `role` (enum) - `USER` or `ASSISTANT`
+- `type` (enum) - `RESULT`, `ERROR`, or `STREAMING`
+- `status` (enum) - `PENDING`, `STREAMING`, or `COMPLETE`
+- `projectId` (id) - Reference to parent project
+- `createdAt` (number, optional) - Unix timestamp
+- `updatedAt` (number, optional) - Unix timestamp
+
+**Indexes:**
+- `by_projectId` - Messages for a project
+- `by_projectId_createdAt` - Project messages ordered by time
+
+#### fragments
+
+Stores generated code fragments and sandbox metadata.
+
+**Fields:**
+- `messageId` (id) - Reference to parent message
+- `sandboxUrl` (string) - E2B sandbox URL
+- `title` (string) - Fragment title
+- `files` (any) - Generated file contents
+- `metadata` (any, optional) - Additional metadata
+- `framework` (enum) - Framework used
+- `createdAt` (number, optional) - Unix timestamp
+- `updatedAt` (number, optional) - Unix timestamp
+
+**Indexes:**
+- `by_messageId` - Fragments for a message
+
+### Usage & Rate Limiting
+
+#### usage
+
+Tracks user credit consumption.
+
+**Fields:**
+- `userId` (string) - User ID
+- `points` (number) - Credits consumed
+- `expire` (number, optional) - Expiration timestamp
+- `planType` (enum, optional) - `free`, `pro`, or `unlimited`
+
+**Indexes:**
+- `by_userId` - User's usage records
+- `by_expire` - For cleanup of expired records
+
+**Limits:**
+- Free tier: 5 generations/day
+- Pro tier: 100 generations/day
+- Unlimited tier: No limits
+
+#### rateLimits
+
+Generic rate limiting for API endpoints.
+
+**Fields:**
+- `key` (string) - Rate limit identifier
+- `count` (number) - Request count in window
+- `windowStart` (number) - Window start timestamp
+- `limit` (number) - Maximum requests allowed
+- `windowMs` (number) - Window duration in milliseconds
+
+**Indexes:**
+- `by_key` - Find limit by key
+- `by_windowStart` - Cleanup old windows
+
+### Subscriptions & Billing
+
+#### subscriptions
+
+Stores Polar.sh subscription data.
+
+**Fields:**
+- `userId` (string) - User ID
+- `polarSubscriptionId` (string) - Polar.sh subscription ID
+- `customerId` (string) - Polar.sh customer ID
+- `productId` (string) - Product ID
+- `priceId` (string) - Price ID
+- `status` (enum) - `active`, `past_due`, `canceled`, `unpaid`, `trialing`
+- `interval` (enum) - `monthly` or `yearly`
+- `currentPeriodStart` (number) - Period start timestamp
+- `currentPeriodEnd` (number) - Period end timestamp
+- `cancelAtPeriodEnd` (boolean) - Auto-cancel flag
+- `canceledAt` (number, optional) - Cancellation timestamp
+- `trialStart` (number, optional) - Trial start
+- `trialEnd` (number, optional) - Trial end
+- `metadata` (any, optional) - Additional data
+- `createdAt` (number) - Creation timestamp
+- `updatedAt` (number) - Last update timestamp
+
+**Indexes:**
+- `by_userId` - User's subscriptions
+- `by_polarSubscriptionId` - Find by Polar ID
+- `by_customerId` - Find by customer
+- `by_status` - Filter by status
+
+#### polarCustomers
+
+Maps users to Polar.sh customers.
+
+**Fields:**
+- `userId` (string) - User ID
+- `polarCustomerId` (string) - Polar.sh customer ID
+- `createdAt` (number) - Creation timestamp
+- `updatedAt` (number) - Last update timestamp
+
+**Indexes:**
+- `by_userId` - Find by user
+- `by_polarCustomerId` - Find by Polar customer ID
+
+### Imports & OAuth
+
+#### imports
+
+Tracks Figma and GitHub imports.
+
+**Fields:**
+- `userId` (string) - User ID
+- `projectId` (id) - Target project
+- `messageId` (id, optional) - Associated message
+- `source` (enum) - `FIGMA` or `GITHUB`
+- `sourceId` (string) - External resource ID
+- `sourceName` (string) - Resource name
+- `sourceUrl` (string) - Resource URL
+- `status` (enum) - `PENDING`, `PROCESSING`, `COMPLETE`, `FAILED`
+- `metadata` (any, optional) - Import metadata
+- `error` (string, optional) - Error message
+- `createdAt` (number) - Creation timestamp
+- `updatedAt` (number) - Last update timestamp
+
+**Indexes:**
+- `by_userId` - User's imports
+- `by_projectId` - Project imports
+- `by_status` - Filter by status
+
+#### oauthConnections
+
+Stores OAuth tokens for external services.
+
+**Fields:**
+- `userId` (string) - User ID
+- `provider` (enum) - `figma` or `github`
+- `accessToken` (string) - Encrypted access token
+- `refreshToken` (string, optional) - Encrypted refresh token
+- `expiresAt` (number, optional) - Token expiration
+- `scope` (string) - OAuth scopes
+- `metadata` (any, optional) - Provider-specific data
+- `createdAt` (number) - Creation timestamp
+- `updatedAt` (number) - Last update timestamp
+
+**Indexes:**
+- `by_userId` - User's connections
+- `by_userId_provider` - Specific provider connection
+
+<Warning>
+  **Security:** OAuth tokens are encrypted before storage. Never log or expose them.
+</Warning>
+
+### Webhooks & Events
+
+#### webhookEvents
+
+Tracks webhook events from external services (Polar.sh).
+
+**Fields:**
+- `eventId` (string) - External event ID
+- `eventType` (string) - Event type (e.g., `subscription.created`)
+- `status` (enum) - `received`, `processed`, `failed`, `retrying`
+- `payload` (any) - Event payload
+- `error` (string, optional) - Error message
+- `processedAt` (number, optional) - Processing timestamp
+- `retryCount` (number) - Retry attempts
+- `createdAt` (number) - Receipt timestamp
+
+**Indexes:**
+- `by_eventId` - Find by event ID (deduplication)
+- `by_status` - Filter by status
+- `by_eventType` - Filter by type
+- `by_createdAt` - Ordered events
+
+#### pendingSubscriptions
+
+Temporary storage for subscriptions awaiting user creation.
+
+**Fields:**
+- `polarSubscriptionId` (string) - Polar subscription ID
+- `customerId` (string) - Polar customer ID
+- `eventData` (any) - Subscription data
+- `status` (enum) - `pending`, `resolved`, `failed`
+- `resolvedUserId` (string, optional) - Linked user ID
+- `error` (string, optional) - Error message
+- `createdAt` (number) - Creation timestamp
+- `resolvedAt` (number, optional) - Resolution timestamp
+
+**Indexes:**
+- `by_polarSubscriptionId` - Find by subscription
+- `by_customerId` - Find by customer
+- `by_status` - Filter by status
+
+### Attachments & Metadata
+
+#### attachments
+
+Stores file attachments for messages.
+
+**Fields:**
+- `type` (enum) - `IMAGE`, `FIGMA_FILE`, `GITHUB_REPO`
+- `url` (string) - File URL
+- `width` (number, optional) - Image width
+- `height` (number, optional) - Image height
+- `size` (number) - File size in bytes
+- `messageId` (id) - Parent message
+- `importId` (id, optional) - Related import
+- `sourceMetadata` (any, optional) - Source-specific data
+- `createdAt` (number, optional) - Creation timestamp
+- `updatedAt` (number, optional) - Last update timestamp
+
+**Indexes:**
+- `by_messageId` - Attachments for a message
+
+#### fragmentDrafts
+
+Temporary storage for in-progress code fragments.
+
+**Fields:**
+- `projectId` (id) - Parent project
+- `files` (any) - Draft file contents
+- `framework` (enum) - Framework type
+- `createdAt` (number, optional) - Creation timestamp
+- `updatedAt` (number, optional) - Last update timestamp
+
+**Indexes:**
+- `by_projectId` - Drafts for a project
+
+### Agent Runs
+
+#### agentRuns
+
+Tracks AI agent execution status.
+
+**Fields:**
+- `projectId` (id) - Target project
+- `value` (string) - User input/prompt
+- `model` (string, optional) - AI model used
+- `framework` (string, optional) - Framework choice
+- `status` (enum) - `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`
+- `runSource` (enum) - `WEBCONTAINER` or `INNGEST`
+- `claimedBy` (string, optional) - Execution worker ID
+- `messageId` (id, optional) - Result message
+- `fragmentId` (id, optional) - Result fragment
+- `error` (string, optional) - Error message
+- `createdAt` (number) - Creation timestamp
+- `updatedAt` (number) - Last update timestamp
+- `completedAt` (number, optional) - Completion timestamp
+
+**Indexes:**
+- `by_projectId` - Runs for a project
+- `by_projectId_status` - Project runs by status
+- `by_status` - All runs by status
+- `by_projectId_createdAt` - Project runs ordered by time
+
+## Database Operations
+
+### Common Queries
+
+#### Get User's Projects
+
+```typescript
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+export const getUserProjects = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .collect();
+  },
+});
+```
+
+#### Get Project Messages
+
+```typescript
+export const getProjectMessages = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_projectId_createdAt", (q) => 
+        q.eq("projectId", args.projectId)
+      )
+      .order("asc")
+      .collect();
+  },
+});
+```
+
+### Mutations
+
+#### Create Project
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const createProject = mutation({
+  args: {
+    name: v.string(),
+    userId: v.string(),
+    framework: v.union(
+      v.literal("NEXTJS"),
+      v.literal("ANGULAR"),
+      v.literal("REACT"),
+      v.literal("VUE"),
+      v.literal("SVELTE")
+    ),
+  },
+  handler: async (ctx, args) => {
+    const projectId = await ctx.db.insert("projects", {
+      name: args.name,
+      userId: args.userId,
+      framework: args.framework,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    return projectId;
+  },
+});
+```
+
+#### Update Subscription Status
+
+```typescript
+export const updateSubscriptionStatus = mutation({
+  args: {
+    subscriptionId: v.id("subscriptions"),
+    status: v.union(
+      v.literal("active"),
+      v.literal("past_due"),
+      v.literal("canceled"),
+      v.literal("unpaid"),
+      v.literal("trialing")
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.subscriptionId, {
+      status: args.status,
+      updatedAt: Date.now(),
+    });
+  },
+});
+```
+
+## Schema Migrations
+
+Convex automatically handles schema migrations.
+
+### Adding a New Field
+
+1. Update `convex/schema.ts`:
+
+```typescript
+projects: defineTable({
+  name: v.string(),
+  userId: v.string(),
+  framework: frameworkEnum,
+  description: v.optional(v.string()), // New field
+  createdAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+})
+```
+
+2. Deploy the change:
+
+```bash
+bun run convex:deploy
+```
+
+Convex will automatically:
+- Add the new field to the schema
+- Preserve existing data
+- Make the field available immediately
+
+### Adding an Index
+
+1. Update schema with new index:
+
+```typescript
+projects: defineTable({
+  // ... fields
+})
+  .index("by_userId", ["userId"])
+  .index("by_framework", ["framework"]) // New index
+```
+
+2. Deploy:
+
+```bash
+bun run convex:deploy
+```
+
+Convex will build the index in the background.
+
+## Performance Optimization
+
+### Best Practices
+
+<Warning>
+  **Never use `.filter()` in queries!** Always use `.withIndex()` to avoid O(N) scans.
+</Warning>
+
+**Bad:**
+```typescript
+// ❌ Scans entire table
+const projects = await ctx.db
+  .query("projects")
+  .filter((q) => q.eq(q.field("userId"), userId))
+  .collect();
+```
+
+**Good:**
+```typescript
+// ✅ Uses index
+const projects = await ctx.db
+  .query("projects")
+  .withIndex("by_userId", (q) => q.eq("userId", userId))
+  .collect();
+```
+
+### Pagination
+
+For large result sets, use pagination:
+
+```typescript
+export const paginatedProjects = query({
+  args: {
+    userId: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_userId_createdAt", (q) => 
+        q.eq("userId", args.userId)
+      )
+      .order("desc")
+      .paginate(args.paginationOpts);
+  },
+});
+```
+
+### Caching
+
+Convex queries are reactive and automatically cached. To optimize:
+
+1. **Split queries** - Separate frequently changing data from static data
+2. **Use specific indexes** - More specific indexes = better performance
+3. **Limit result size** - Use pagination for large datasets
+
+## Monitoring
+
+### Convex Dashboard
+
+Monitor your database at [dashboard.convex.dev](https://dashboard.convex.dev/):
+
+1. **Data Tab** - View and edit table data
+2. **Functions Tab** - Monitor query/mutation execution
+3. **Logs Tab** - View function logs and errors
+4. **Usage Tab** - Track database operations and bandwidth
+
+### Key Metrics
+
+- **Database reads/writes** - Track operation volume
+- **Function duration** - Identify slow queries
+- **Error rate** - Monitor failed operations
+- **Bandwidth** - Track data transfer
+
+## Troubleshooting
+
+### "Schema validation failed"
+
+**Cause:** Data doesn't match schema definition
+
+**Solution:** Check that all required fields are provided and types match:
+
+```typescript
+// ✅ Correct
+await ctx.db.insert("projects", {
+  name: "My Project",
+  userId: "user_123",
+  framework: "NEXTJS", // Valid enum value
+  createdAt: Date.now(),
+});
+
+// ❌ Wrong - invalid framework
+await ctx.db.insert("projects", {
+  name: "My Project",
+  userId: "user_123",
+  framework: "React", // Should be "REACT"
+});
+```
+
+### "Index not found"
+
+**Cause:** Query references non-existent index
+
+**Solution:** Add the index to `convex/schema.ts` and deploy:
+
+```typescript
+projects: defineTable({
+  // ... fields
+})
+  .index("by_userId", ["userId"]) // Add this
+```
+
+### Slow Queries
+
+**Cause:** Missing indexes or inefficient queries
+
+**Solution:**
+1. Check Convex Dashboard → Functions → Slow queries
+2. Add indexes for frequently queried fields
+3. Use pagination for large result sets
+4. Avoid `.filter()` - use `.withIndex()` instead
+
+## Backup & Recovery
+
+Convex automatically backs up your data:
+
+- **Point-in-time recovery** - Available for up to 30 days
+- **Snapshot exports** - Download data as JSON
+- **Automatic replication** - Multi-region redundancy
+
+To export data:
+
+1. Go to Convex Dashboard → Settings → Export
+2. Select tables to export
+3. Download JSON files
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Deploy Application" icon="rocket" href="/deployment/overview">
+    Complete your deployment with Vercel
+  </Card>
+  <Card title="Environment Variables" icon="key" href="/deployment/environment-variables">
+    Review all required configuration
+  </Card>
+</CardGroup>
+
+## Additional Resources
+
+- [Convex Documentation](https://docs.convex.dev/)
+- [Convex TypeScript Client](https://docs.convex.dev/client/typescript)
+- [Convex Functions](https://docs.convex.dev/functions)
+- [Convex Schema](https://docs.convex.dev/database/schemas)

@@ -1,0 +1,436 @@
+---
+title: "Clerk Webhooks"
+description: "Sync user and organization events from Clerk authentication"
+---
+
+## Overview
+
+ZapDev uses Clerk webhooks to receive real-time notifications about user authentication events, profile updates, and organization changes. This ensures the application stays synchronized with Clerk's user management system.
+
+## Endpoint URL
+
+```
+POST /api/webhooks/clerk
+```
+
+## Configuration
+
+### Environment Variables
+
+Add this to your `.env.local` file:
+
+```bash
+CLERK_WEBHOOK_SECRET=whsec_your_webhook_secret
+```
+
+### Clerk Dashboard Setup
+
+1. Log in to your [Clerk Dashboard](https://dashboard.clerk.com)
+2. Select your application
+3. Navigate to **Webhooks** in the sidebar
+4. Click **Add Endpoint**
+5. Enter your endpoint URL: `https://yourdomain.com/api/webhooks/clerk`
+6. Select the events you want to receive:
+   - `user.created`
+   - `user.updated`
+   - `organization.created`
+   - `organization.updated`
+7. Copy the **Signing Secret** to your environment variables
+
+## Webhook Verification
+
+All incoming webhooks are verified using the Svix library (Clerk's webhook provider):
+
+```typescript
+import { Webhook } from "svix";
+import { headers } from "next/headers";
+import { WebhookEvent } from "@clerk/nextjs/server";
+
+const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+
+if (!WEBHOOK_SECRET) {
+  throw new Error(
+    "Please add CLERK_WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local"
+  );
+}
+
+const headerPayload = await headers();
+const svix_id = headerPayload.get("svix-id");
+const svix_timestamp = headerPayload.get("svix-timestamp");
+const svix_signature = headerPayload.get("svix-signature");
+
+if (!svix_id || !svix_timestamp || !svix_signature) {
+  return new Response("Error occured -- no svix headers", {
+    status: 400,
+  });
+}
+
+const payload = await req.json();
+const body = JSON.stringify(payload);
+
+const wh = new Webhook(WEBHOOK_SECRET);
+let evt: WebhookEvent;
+
+try {
+  evt = wh.verify(body, {
+    "svix-id": svix_id,
+    "svix-timestamp": svix_timestamp,
+    "svix-signature": svix_signature,
+  }) as WebhookEvent;
+} catch (err) {
+  console.error("Error verifying webhook:", err);
+  return new Response("Error occured", {
+    status: 400,
+  });
+}
+```
+
+See implementation in `src/app/api/webhooks/clerk/route.ts:7-44`.
+
+## Supported Events
+
+### User Events
+
+#### `user.created`
+
+Fired when a new user signs up or is created in Clerk.
+
+**Payload Example:**
+
+```json
+{
+  "type": "user.created",
+  "data": {
+    "id": "user_2abc123def456",
+    "email_addresses": [
+      {
+        "id": "idn_xyz789",
+        "email_address": "user@example.com",
+        "verification": {
+          "status": "verified"
+        }
+      }
+    ],
+    "first_name": "John",
+    "last_name": "Doe",
+    "username": "johndoe",
+    "created_at": 1709467200000,
+    "updated_at": 1709467200000
+  }
+}
+```
+
+**Current Processing:**
+
+```typescript
+case "user.created": {
+  const user = evt.data;
+  console.log(`User ${user.id}: ${user.first_name} ${user.last_name}`);
+  break;
+}
+```
+
+See implementation in `src/app/api/webhooks/clerk/route.ts:52-56`.
+
+**Note:** User data is currently logged only. Future implementations may sync user profiles to Convex database or trigger onboarding workflows.
+
+#### `user.updated`
+
+Fired when user profile information changes (name, email, avatar, etc.).
+
+**Payload Example:**
+
+```json
+{
+  "type": "user.updated",
+  "data": {
+    "id": "user_2abc123def456",
+    "email_addresses": [
+      {
+        "id": "idn_xyz789",
+        "email_address": "newemail@example.com",
+        "verification": {
+          "status": "verified"
+        }
+      }
+    ],
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "updated_at": 1709553600000
+  }
+}
+```
+
+**Current Processing:**
+
+```typescript
+case "user.updated": {
+  const user = evt.data;
+  console.log(`User ${user.id}: ${user.first_name} ${user.last_name}`);
+  break;
+}
+```
+
+See implementation in `src/app/api/webhooks/clerk/route.ts:52-56`.
+
+### Organization Events
+
+#### `organization.created`
+
+Fired when a new organization is created.
+
+**Payload Example:**
+
+```json
+{
+  "type": "organization.created",
+  "data": {
+    "id": "org_abc123xyz789",
+    "name": "Acme Corporation",
+    "slug": "acme-corp",
+    "created_at": 1709467200000,
+    "updated_at": 1709467200000,
+    "members_count": 1
+  }
+}
+```
+
+**Current Processing:**
+
+```typescript
+case "organization.created": {
+  const organization = evt.data;
+  console.log(`Organization ${organization.id}: ${organization.name}`);
+  break;
+}
+```
+
+See implementation in `src/app/api/webhooks/clerk/route.ts:59-63`.
+
+#### `organization.updated`
+
+Fired when organization details change (name, settings, etc.).
+
+**Payload Example:**
+
+```json
+{
+  "type": "organization.updated",
+  "data": {
+    "id": "org_abc123xyz789",
+    "name": "Acme Inc.",
+    "slug": "acme-inc",
+    "updated_at": 1709553600000,
+    "members_count": 5
+  }
+}
+```
+
+**Current Processing:**
+
+```typescript
+case "organization.updated": {
+  const organization = evt.data;
+  console.log(`Organization ${organization.id}: ${organization.name}`);
+  break;
+}
+```
+
+See implementation in `src/app/api/webhooks/clerk/route.ts:59-63`.
+
+## Event Processing
+
+The webhook handler uses a switch statement to route events:
+
+```typescript
+const eventType = evt.type;
+
+console.log(`Webhook with type of ${eventType}`);
+
+try {
+  switch (eventType) {
+    case "user.created":
+    case "user.updated": {
+      const user = evt.data;
+      console.log(`User ${user.id}: ${user.first_name} ${user.last_name}`);
+      break;
+    }
+
+    case "organization.created":
+    case "organization.updated": {
+      const organization = evt.data;
+      console.log(`Organization ${organization.id}: ${organization.name}`);
+      break;
+    }
+
+    default:
+      console.log(`Unhandled webhook event type: ${eventType}`);
+  }
+
+  return new Response("", { status: 200 });
+} catch (error) {
+  console.error("Error processing webhook:", error);
+  return new Response("Error processing webhook", { status: 500 });
+}
+```
+
+See implementation in `src/app/api/webhooks/clerk/route.ts:46-75`.
+
+## Testing Webhooks
+
+### Using Clerk Dashboard
+
+1. Go to **Webhooks** in your Clerk Dashboard
+2. Click on your webhook endpoint
+3. Navigate to the **Testing** tab
+4. Select an event type (e.g., `user.created`)
+5. Click **Send Example**
+6. Verify the webhook was received in your application logs
+
+### Local Development with ngrok
+
+For local testing, expose your development server:
+
+```bash
+# Start your Next.js dev server
+bun run dev
+
+# In another terminal, start ngrok
+ngrok http 3000
+```
+
+Then:
+1. Copy the ngrok HTTPS URL (e.g., `https://abc123.ngrok.io`)
+2. Update your Clerk webhook endpoint to `https://abc123.ngrok.io/api/webhooks/clerk`
+3. Trigger test events from Clerk Dashboard
+4. Monitor your local server logs
+
+### Manual Testing with curl
+
+```bash
+curl -X POST https://yourdomain.com/api/webhooks/clerk \
+  -H "Content-Type: application/json" \
+  -H "svix-id: msg_abc123" \
+  -H "svix-timestamp: 1709467200" \
+  -H "svix-signature: v1,signature_here" \
+  -d '{
+    "type": "user.created",
+    "data": {
+      "id": "user_test123",
+      "first_name": "Test",
+      "last_name": "User"
+    }
+  }'
+```
+
+**Note:** Manual testing requires generating a valid Svix signature. Use Clerk's testing tools instead.
+
+## Error Handling
+
+The webhook handler includes comprehensive error handling:
+
+### Missing Signature Headers
+
+```typescript
+if (!svix_id || !svix_timestamp || !svix_signature) {
+  return new Response("Error occured -- no svix headers", {
+    status: 400,
+  });
+}
+```
+
+### Verification Failure
+
+```typescript
+try {
+  evt = wh.verify(body, {
+    "svix-id": svix_id,
+    "svix-timestamp": svix_timestamp,
+    "svix-signature": svix_signature,
+  }) as WebhookEvent;
+} catch (err) {
+  console.error("Error verifying webhook:", err);
+  return new Response("Error occured", {
+    status: 400,
+  });
+}
+```
+
+### Processing Errors
+
+```typescript
+try {
+  // Process event
+  switch (eventType) {
+    // ... event handlers
+  }
+  return new Response("", { status: 200 });
+} catch (error) {
+  console.error("Error processing webhook:", error);
+  return new Response("Error processing webhook", { status: 500 });
+}
+```
+
+## Security Best Practices
+
+1. **Always verify signatures** - Never process webhooks without signature verification
+2. **Use HTTPS** - Clerk requires HTTPS endpoints in production
+3. **Validate event types** - Only process expected event types
+4. **Log errors** - Monitor webhook failures for debugging
+5. **Idempotency** - Design event handlers to be idempotent (safe to retry)
+6. **Rate limiting** - Consider implementing rate limits on your webhook endpoint
+
+## Common Issues
+
+### Webhook Secret Not Found
+
+**Error:**
+```
+Error: Please add CLERK_WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local
+```
+
+**Solution:** Add `CLERK_WEBHOOK_SECRET` to your environment variables.
+
+### Signature Verification Failed
+
+**Error:**
+```
+Error verifying webhook: signature verification failed
+```
+
+**Solutions:**
+- Verify the webhook secret matches your Clerk Dashboard
+- Check that the request body is not modified before verification
+- Ensure you're using the raw request body (not parsed JSON)
+
+### Missing Svix Headers
+
+**Error:**
+```
+Error occured -- no svix headers
+```
+
+**Solution:** Verify the request is coming from Clerk with proper headers (`svix-id`, `svix-timestamp`, `svix-signature`).
+
+## Future Enhancements
+
+Potential improvements to the webhook handler:
+
+1. **User Profile Sync** - Store user data in Convex for faster access
+2. **Organization Management** - Sync organization data and team memberships
+3. **Event Logging** - Store webhook events using `api.webhooks.logWebhookEvent`
+4. **Onboarding Triggers** - Trigger welcome emails or onboarding flows for new users
+5. **Analytics** - Track user signup and profile update metrics
+6. **Polar Integration** - Link Clerk users with Polar customers for subscription management
+
+## Related Files
+
+- Webhook handler: `src/app/api/webhooks/clerk/route.ts`
+- Clerk configuration: `src/middleware.ts` (authentication middleware)
+- Event logging utilities: `convex/webhooks.ts`
+
+## Additional Resources
+
+- [Clerk Webhook Documentation](https://clerk.com/docs/integrations/webhooks)
+- [Svix Webhook Verification](https://docs.svix.com/receiving/verifying-payloads/how)
+- [Clerk Event Types Reference](https://clerk.com/docs/integrations/webhooks/overview#supported-events)
