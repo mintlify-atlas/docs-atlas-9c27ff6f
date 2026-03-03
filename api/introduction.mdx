@@ -1,47 +1,22 @@
 ---
 title: API Reference Overview
-description: Learn about ZapDev's dual API architecture using tRPC and Convex for type-safe, real-time development
+description: Learn about ZapDev's API architecture using Convex for type-safe, real-time development
 ---
 
 # API Reference Overview
 
-ZapDev provides a **hybrid API architecture** that combines two powerful technologies:
+ZapDev uses **Convex** as its primary backend and API layer. Convex provides:
 
-- **tRPC**: Type-safe API layer for feature-specific endpoints
-- **Convex**: Real-time database with reactive queries and mutations
+- **Real-time reactive queries** that automatically update when data changes
+- **Type-safe mutations** for data modification
+- **Server-side actions** for background processing and external API calls
+- **Built-in authentication** with Clerk integration
 
 This architecture ensures end-to-end type safety while enabling real-time data synchronization across your application.
 
 ## Architecture Overview
 
-### tRPC API Layer
-
-The tRPC layer provides type-safe procedures for client-server communication. All tRPC endpoints are defined using strict TypeScript types with automatic inference.
-
-**Location**: `src/trpc/routers/_app.ts`
-
-```typescript
-import { createTRPCRouter } from '../init';
-import { usageRouter } from '@/modules/usage/server/procedures';
-import { messagesRouter } from '@/modules/messages/server/procedures';
-import { projectsRouter } from '@/modules/projects/server/procedures';
-
-export const appRouter = createTRPCRouter({
-  usage: usageRouter,
-  messages: messagesRouter,
-  projects: projectsRouter,
-});
-
-export type AppRouter = typeof appRouter;
-```
-
-**Key Features**:
-- Automatic type inference from server to client
-- SuperJSON transformer for complex types (Dates, BigInts)
-- Built-in authentication middleware
-- React Query integration for caching and optimistic updates
-
-### Convex Real-Time Database
+### Convex Backend
 
 Convex provides real-time database operations with reactive queries that automatically update when data changes.
 
@@ -76,14 +51,6 @@ export const get = query({
 ```
 
 ## API Conventions
-
-### tRPC Conventions
-
-1. **Feature-Based Organization**: Routers are organized by domain in `src/modules/[feature]/server/procedures.ts`
-2. **Procedure Types**:
-   - `baseProcedure`: Public endpoints (no authentication)
-   - `protectedProcedure`: Authenticated endpoints (requires Clerk session)
-3. **Error Handling**: Use `TRPCError` with appropriate error codes
 
 ### Convex Conventions
 
@@ -121,20 +88,6 @@ projects: defineTable({
 
 ## Client Usage
 
-### Using tRPC in Client Components
-
-```typescript
-'use client';
-import { useTRPC } from '@/trpc/client';
-
-export function MyComponent() {
-  const { data, isLoading } = useTRPC.projects.list.useQuery();
-  const createMutation = useTRPC.projects.create.useMutation();
-  
-  // ... component logic
-}
-```
-
 ### Using Convex in Client Components
 
 ```typescript
@@ -151,18 +104,6 @@ export function MyComponent() {
 ```
 
 ### Using in Server Components
-
-For **tRPC** in server components:
-```typescript
-import { caller } from '@/trpc/server';
-
-export async function MyServerComponent() {
-  const api = await caller();
-  const projects = await api.projects.list();
-  
-  return <div>{/* ... */}</div>;
-}
-```
 
 For **Convex** in server components:
 ```typescript
@@ -188,12 +129,9 @@ export async function MyServerComponent() {
 
 ## Type Safety
 
-Both APIs provide full end-to-end type safety:
+Convex provides full end-to-end type safety by generating types from your schema definitions in `convex/_generated/dataModel.d.ts` and `convex/_generated/api.d.ts`.
 
-- **tRPC**: Infers types from procedure definitions automatically
-- **Convex**: Generates types from schema in `convex/_generated/dataModel.d.ts`
-
-Use TypeScript's type inference to get autocomplete and type checking throughout your application.
+Use TypeScript's type inference to get autocomplete and type checking throughout your application. All query and mutation functions are fully typed, including arguments and return values.
 
 ## Next Steps
 

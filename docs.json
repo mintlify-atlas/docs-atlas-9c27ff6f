@@ -112,7 +112,7 @@
             ]
           },
           {
-            "group": "tRPC API",
+            "group": "Core API",
             "pages": [
               "api/projects",
               "api/messages",
@@ -121,7 +121,7 @@
             ]
           },
           {
-            "group": "Convex Backend",
+            "group": "Database",
             "pages": [
               "api/convex/schema",
               "api/convex/queries",

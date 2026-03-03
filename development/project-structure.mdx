@@ -7,6 +7,10 @@ description: Complete guide to ZapDev's project organization, file structure, an
 
 ZapDev follows a feature-based architecture with clear separation of concerns. This guide explains the organization of the codebase and where to find specific functionality.
 
+<Warning>
+**API Architecture Note**: While tRPC packages are installed and routers exist in `src/trpc/` and `src/modules/*/server/procedures.ts`, these routers are currently **empty**. The project uses **Convex directly** for all API operations via `convex/` functions. All client-side data fetching uses Convex hooks (`useQuery`, `useMutation`) from `convex/react`.
+</Warning>
+
 ## Directory Overview
 
 ```

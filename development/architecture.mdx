@@ -12,10 +12,10 @@ ZapDev is an AI-powered web application development platform that enables users 
 ZapDev follows a **hybrid architecture** combining:
 
 - **Next.js 15 App Router** for the frontend and API layer
-- **Convex** as a real-time database with reactive queries
+- **Convex** as a real-time database with reactive queries and mutations
 - **E2B sandboxes** for isolated code execution environments
 - **Inngest + Agent Kit** for background job orchestration
-- **tRPC** for type-safe client-server communication
+- **Convex hooks** for type-safe client-server communication
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -23,14 +23,14 @@ ZapDev follows a **hybrid architecture** combining:
 │  Next.js 15 (React 19) + Tailwind CSS v4 + Shadcn/ui      │
 └─────────────────┬───────────────────────────────────────────┘
                   │
-                  │ tRPC (Type-safe API)
+                  │ Convex React Hooks (useQuery, useMutation)
                   │
 ┌─────────────────▼───────────────────────────────────────────┐
 │                     Application Layer                       │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │  App Router  │  │  API Routes  │  │ tRPC Routers │     │
-│  │   (Pages)    │  │ (/api/*)     │  │  (Modules)   │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│  ┌──────────────┐  ┌──────────────┐                        │
+│  │  App Router  │  │  API Routes  │                        │
+│  │   (Pages)    │  │ (/api/*)     │                        │
+│  └──────────────┘  └──────────────┘                        │
 └─────────────────┬───────────────────────────────────────────┘
                   │
         ┌─────────┴──────────┐
@@ -154,38 +154,29 @@ cd sandbox-templates/nextjs
 e2b template build --name zapdev --cmd "/compile_page.sh"
 ```
 
-### 5. Type-Safe API Layer (tRPC)
+### 5. Feature-Based Modules
 
-**Location**: `src/trpc/`
+**Location**: `src/modules/`
 
-tRPC provides end-to-end type safety between client and server:
+Modules are organized by feature domain with UI and server concerns:
 
-**Router Structure** (see `src/trpc/routers/_app.ts:7`):
-```typescript
-appRouter {
-  usage: usageRouter,      // Credit tracking, rate limits
-  messages: messagesRouter, // Message CRUD, streaming
-  projects: projectsRouter  // Project management
-}
-```
-
-**Procedure Types**:
-- `publicProcedure` - Unauthenticated access
-- `protectedProcedure` - Requires Clerk authentication
-
-**Feature-Based Organization**:
+**Module Structure**:
 ```
 src/modules/
 ├── projects/
-│   ├── ui/              # React components
-│   └── server/          # tRPC procedures
+│   ├── ui/              # React components for projects
+│   └── server/          # Server utilities (tRPC routers are empty)
 ├── messages/
-│   ├── ui/
+│   ├── ui/              # Message components
 │   └── server/
 └── usage/
-    ├── ui/
+    ├── ui/              # Usage tracking UI
     └── server/
 ```
+
+<Note>
+The `server/procedures.ts` files in each module contain empty tRPC routers. All API operations use Convex directly via `convex/` functions.
+</Note>
 
 ### 6. Authentication & Authorization (Clerk)
 

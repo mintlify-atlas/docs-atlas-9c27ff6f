@@ -190,44 +190,11 @@ npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
 
 ## Type-Safe API
 
-### tRPC
-
-**Packages**:
-- `@trpc/server` v`^11.8.1` (see `package.json:59`)
-- `@trpc/client` v`^11.8.1` (see `package.json:58`)
-- `@trpc/tanstack-react-query` v`^11.8.1` (see `package.json:60`)
-
-**Role**: End-to-end type safety between client and server.
-
-**Architecture** (see `src/trpc/routers/_app.ts:7`):
-```typescript
-appRouter = {
-  usage: usageRouter,       // src/modules/usage/server/procedures.ts
-  messages: messagesRouter, // src/modules/messages/server/procedures.ts
-  projects: projectsRouter  // src/modules/projects/server/procedures.ts
-}
-```
-
-**Client Usage**:
-```typescript
-import { api } from '@/trpc/client';
-
-// Fully typed, auto-complete
-const { data } = api.projects.list.useQuery();
-const create = api.projects.create.useMutation();
-```
-
-**Benefits**:
-- No code generation required
-- Automatic type inference
-- Runtime validation with Zod
-- Optimistic updates
-
 ### Zod
 
 **Package**: `zod` v`^4.2.1` (see `package.json:106`)
 
-**Role**: Schema validation for APIs and forms.
+**Role**: Schema validation for forms and data validation.
 
 **Usage**:
 ```typescript
@@ -235,14 +202,18 @@ import { z } from 'zod';
 
 const schema = z.object({
   name: z.string().min(1),
-  framework: frameworkEnum,
+  framework: z.enum(['NEXTJS', 'ANGULAR', 'REACT', 'VUE', 'SVELTE']),
 });
 
-// tRPC integration
-export const create = protectedProcedure
-  .input(schema)
-  .mutation(async ({ input, ctx }) => { ... });
+// Used with React Hook Form
+const form = useForm({
+  resolver: zodResolver(schema),
+});
 ```
+
+<Note>
+**Note about tRPC**: While tRPC packages are installed (`@trpc/server`, `@trpc/client`), the project currently uses **Convex directly** for all API operations. The tRPC routers in `src/modules/*/server/procedures.ts` are empty placeholders. All data fetching uses Convex queries and mutations via `convex/react`.
+</Note>
 
 ## Authentication
 

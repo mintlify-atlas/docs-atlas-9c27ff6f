@@ -1,6 +1,6 @@
 ---
 title: Authentication
-description: Learn how ZapDev uses Clerk JWT tokens to authenticate API requests in both tRPC and Convex
+description: Learn how ZapDev uses Clerk JWT tokens to authenticate API requests in Convex
 ---
 
 # Authentication
@@ -121,55 +121,6 @@ export const get = query({
     
     return project;
   },
-});
-```
-
-### tRPC Authentication Middleware
-
-tRPC uses middleware to enforce authentication. The context is created with user information from Clerk (`src/trpc/init.ts:6`):
-
-```typescript
-import { getUser } from '@/lib/auth-server';
-
-export const createTRPCContext = cache(async () => {
-  const user = await getUser();
-  return { user };
-});
-```
-
-**Protected Procedure** (`src/trpc/init.ts:25`):
-```typescript
-const isAuthed = t.middleware(({ next, ctx }) => {
-  if (!ctx.user) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Not authenticated",
-    });
-  }
-
-  return next({
-    ctx: {
-      user: ctx.user,
-    },
-  });
-});
-
-export const protectedProcedure = t.procedure.use(isAuthed);
-```
-
-**Usage in tRPC Routers**:
-```typescript
-import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
-import { z } from 'zod';
-
-export const myRouter = createTRPCRouter({
-  myProtectedEndpoint: protectedProcedure
-    .input(z.object({ name: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      // ctx.user is guaranteed to exist
-      const userId = ctx.user.id;
-      // ... your logic
-    }),
 });
 ```
 
@@ -311,12 +262,12 @@ export async function hasProAccess(
 
 ## Security Best Practices
 
-1. **Always Use Authentication Helpers**: Use `requireAuth()` or the `protectedProcedure` middleware
+1. **Always Use Authentication Helpers**: Use `requireAuth()` in all protected Convex functions
 2. **Verify Resource Ownership**: Check that `project.userId === userId` before mutations
 3. **Never Expose Internal IDs**: Don't return Clerk user IDs in public responses
 4. **Use Indexes for Queries**: Filter by `userId` using indexes, not `.filter()`
 5. **Handle Token Expiry**: Implement proper error handling for expired tokens
-6. **Validate All Inputs**: Use Zod schemas (tRPC) or Convex validators (`v.*`)
+6. **Validate All Inputs**: Use Convex validators (`v.*`) for all function arguments
 
 ## Error Handling
 
@@ -329,26 +280,21 @@ if (!userId) {
 }
 ```
 
-**tRPC**:
-```typescript
-throw new TRPCError({
-  code: "UNAUTHORIZED",
-  message: "Not authenticated",
-});
-```
-
 ### Client-Side Handling
 
 ```typescript
 'use client';
 import { useRouter } from 'next/navigation';
-import { useTRPC } from '@/trpc/client';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 export function MyComponent() {
   const router = useRouter();
-  const { data, error } = useTRPC.projects.list.useQuery();
+  const projects = useQuery(api.projects.list);
   
-  if (error?.data?.code === 'UNAUTHORIZED') {
+  // Convex returns undefined for unauthenticated queries
+  // Redirect to sign-in if needed
+  if (projects === null) {
     router.push('/sign-in');
   }
   
@@ -358,6 +304,6 @@ export function MyComponent() {
 
 ## Next Steps
 
-- [API Overview](/api/introduction) - Learn about the dual API architecture
+- [API Overview](/api/introduction) - Learn about the Convex API architecture
 - [Projects API](/api/projects) - Project management with authentication
 - [Usage API](/api/usage) - Credit tracking and subscription tiers
